@@ -1,0 +1,2 @@
+*.so filter=lfs diff=lfs merge=lfs -text
+external/pico/*.so filter=lfs diff=lfs merge=lfs -text
