@@ -1,7 +1,7 @@
 /*
  * WiVRn VR streaming
- * Copyright (C) 2022  Guillaume Meunier <guillaume.meunier@centraliens.net>
- * Copyright (C) 2022  Patrick Nicolas <patricknicolas@laposte.net>
+ * Copyright (C) 2022-2024  Guillaume Meunier <guillaume.meunier@centraliens.net>
+ * Copyright (C) 2022-2024  Patrick Nicolas <patricknicolas@laposte.net>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,46 +19,38 @@
 
 #pragma once
 
-#include "vk/vk_cmd_pool.h"
-#include "vk/vk_helpers.h"
+#include "vk/allocation.h"
 #include <vector>
-#include <vulkan/vulkan_core.h>
+#include <vulkan/vulkan_raii.hpp>
 
-class YuvConverter
+class yuv_converter
 {
+	vk::Extent2D extent;
+
+	vk::Image rgb;
 public:
-	struct image_bundle
-	{
-		VkDeviceMemory image_memory = VK_NULL_HANDLE;
-		VkImage image = VK_NULL_HANDLE;
-		VkImageView view = VK_NULL_HANDLE;
-		VkDeviceMemory buffer_memory = VK_NULL_HANDLE;
-		VkBuffer buffer = VK_NULL_HANDLE;
-		void * mapped_memory = nullptr;
-		VkRenderPass render_pass = VK_NULL_HANDLE;
-		VkFramebuffer frame_buffer = VK_NULL_HANDLE;
-		VkShaderModule frag = VK_NULL_HANDLE;
-		VkPipeline pipeline = VK_NULL_HANDLE;
-		VkExtent2D extent;
-		int stride;
-	};
-	vk_bundle & vk;
-	vk_cmd_pool & pool;
-	image_bundle y;
-	image_bundle uv;
-	VkSampler sampler = VK_NULL_HANDLE;
-	VkDescriptorSetLayout descriptor_set_layout = VK_NULL_HANDLE;
-	VkDescriptorPool descriptor_pool = VK_NULL_HANDLE;
+	image_allocation luma;
+	image_allocation chroma;
+private:
+	vk::raii::ImageView view_rgb = nullptr;
+	vk::raii::ImageView view_luma = nullptr;
+	vk::raii::ImageView view_chroma = nullptr;
 
-	VkShaderModule vert = VK_NULL_HANDLE;
+	vk::raii::DescriptorSetLayout ds_layout = nullptr;
+	vk::raii::PipelineLayout layout = nullptr;
+	vk::raii::Pipeline pipeline = nullptr;
+	vk::raii::DescriptorPool dp = nullptr;
+	vk::raii::DescriptorSet ds = nullptr;
 
-	VkPipelineLayout pipeline_layout = VK_NULL_HANDLE;
+	std::vector<vk::raii::DeviceMemory> mem;
 
-	std::vector<VkCommandBuffer> command_buffers;
-	std::vector<VkDescriptorSet> descriptor_sets;
+	public:
+	yuv_converter();
+	yuv_converter(vk::PhysicalDevice, vk::raii::Device& device, vk::Image rgb, vk::Format format, vk::Extent2D extent);
 
-	YuvConverter(vk_bundle * vk, vk_cmd_pool & pool, VkExtent3D extent, int offset_x, int offset_y, int input_width, int input_height);
-	~YuvConverter();
+	// Converts the given image to yuv, stored in luma and chroma images.
+	// The output images will be in transfer src optimal layout
+	void record_draw_commands(vk::raii::CommandBuffer& cmd_buf);
 
-	void SetImages(int num_images, VkImage * images, VkImageView * views);
+	void assemble_planes(vk::Rect2D, vk::raii::CommandBuffer&, vk::Image target);
 };
