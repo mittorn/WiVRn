@@ -19,43 +19,31 @@
 
 #pragma once
 
-#include "nvEncodeAPI.h"
-#include "video_encoder.h"
-#include <cuda.h>
+#include "video_encoder_ffmpeg.h"
+#include "ffmpeg_helper.h"
+#include "utils/wivrn_vk_bundle.h"
 #include <vulkan/vulkan_raii.hpp>
 
 namespace xrt::drivers::wivrn
 {
+struct encoder_settings;
+}
 
-class VideoEncoderNvenc : public VideoEncoder
+class video_encoder_va : public VideoEncoderFFMPEG
 {
-	wivrn_vk_bundle& vk;
-	// relevant part of the input image to encode
+	av_buffer_ptr drm_frame_ctx;
+	av_frame_ptr va_frame;
+	av_frame_ptr drm_frame;
 	vk::Rect2D rect;
-
-	NV_ENCODE_API_FUNCTION_LIST fn;
-	CUcontext cuda;
-	void * session_handle;
-	NV_ENC_OUTPUT_PTR bitstreamBuffer;
-
-	vk::raii::Buffer yuv_buffer = nullptr;
-	vk::raii::DeviceMemory mem = nullptr;
-	CUexternalMemory extmem;
-
-	vk::Image luma;
-	vk::Image chroma;
-	CUdeviceptr frame;
-	size_t pitch;
-	NV_ENC_REGISTERED_PTR nvenc_resource;
-	video_codec codec;
-	float fps;
-	int bitrate;
+	vk::raii::Image luma;
+	vk::raii::Image chroma;
+	std::vector<vk::raii::DeviceMemory> mem;
 
 public:
-	VideoEncoderNvenc(wivrn_vk_bundle& vk, const encoder_settings & settings, float fps);
+	video_encoder_va(wivrn_vk_bundle&, xrt::drivers::wivrn::encoder_settings & settings, float fps);
 
 	void PresentImage(yuv_converter & src_yuv, vk::raii::CommandBuffer & cmd_buf) override;
-	void Encode( bool idr, std::chrono::steady_clock::time_point pts) override;
-};
 
-} // namespace xrt::drivers::wivrn
+protected:
+	void PushFrame(bool idr, std::chrono::steady_clock::time_point pts) override;
+};
