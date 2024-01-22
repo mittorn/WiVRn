@@ -260,7 +260,7 @@ VideoEncoderNvenc::VideoEncoderNvenc(wivrn_vk_bundle & vk, const encoder_setting
 	CU_CHECK(cuCtxPopCurrent(NULL));
 }
 
-void VideoEncoderNvenc::PresentImage(yuv_converter & src_yuv, vk::raii::CommandBuffer & cmd_buf)
+vk::Semaphore VideoEncoderNvenc::PresentImage(yuv_converter & src_yuv, vk::raii::CommandBuffer & cmd_buf)
 {
 	cmd_buf.copyImageToBuffer(
 	        src_yuv.luma,
@@ -301,7 +301,7 @@ void VideoEncoderNvenc::PresentImage(yuv_converter & src_yuv, vk::raii::CommandB
 	                        .height = rect.extent.height / 2,
 	                        .depth = 1,
 	                }});
-	return;
+	return nullptr;
 }
 
 void VideoEncoderNvenc::Encode(bool idr, std::chrono::steady_clock::time_point pts)

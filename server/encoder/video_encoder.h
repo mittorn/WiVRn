@@ -39,6 +39,7 @@ class wivrn_session;
 inline const char * encoder_nvenc = "nvenc";
 inline const char * encoder_vaapi = "vaapi";
 inline const char * encoder_x264 = "x264";
+inline const char * encoder_vulkan = "vulkan";
 
 class VideoEncoder
 {
@@ -68,7 +69,11 @@ public:
 	virtual ~VideoEncoder() = default;
 
 	// called on present to submit command buffers for the image.
-	virtual void PresentImage(yuv_converter & src_yuv, vk::raii::CommandBuffer & cmd_buf) = 0;
+	// returned semaphore will be signaled by command buffer completion if not null
+	virtual vk::Semaphore PresentImage(yuv_converter & src_yuv, vk::raii::CommandBuffer & cmd_buf) = 0;
+
+	// called on present after the command buffer from PresentImage was submitted
+	virtual void PostSubmit() {};
 
 	// The other end lost a frame and needs to resynchronize
 	void SyncNeeded();

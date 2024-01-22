@@ -179,7 +179,7 @@ VideoEncoderX264::VideoEncoderX264(
 	pic.img.plane[1] = (uint8_t *)chroma.map();
 }
 
-void VideoEncoderX264::PresentImage(yuv_converter & src_yuv, vk::raii::CommandBuffer & cmd_buf)
+vk::Semaphore VideoEncoderX264::PresentImage(yuv_converter & src_yuv, vk::raii::CommandBuffer & cmd_buf)
 {
 	cmd_buf.copyImageToBuffer(
 	        src_yuv.luma,
@@ -219,6 +219,7 @@ void VideoEncoderX264::PresentImage(yuv_converter & src_yuv, vk::raii::CommandBu
 	                        .height = rect.extent.height / 2,
 	                        .depth = 1,
 	                }});
+	return nullptr;
 }
 
 void VideoEncoderX264::Encode(bool idr, std::chrono::steady_clock::time_point pts)

@@ -319,7 +319,7 @@ video_encoder_va::video_encoder_va(wivrn_vk_bundle & vk, xrt::drivers::wivrn::en
 	}
 }
 
-void video_encoder_va::PresentImage(yuv_converter & src_yuv, vk::raii::CommandBuffer & cmd_buf)
+vk::Semaphore video_encoder_va::PresentImage(yuv_converter & src_yuv, vk::raii::CommandBuffer & cmd_buf)
 {
 	std::array im_barriers = {
 	        vk::ImageMemoryBarrier{
@@ -402,6 +402,7 @@ void video_encoder_va::PresentImage(yuv_converter & src_yuv, vk::raii::CommandBu
 	                        .height = rect.extent.height / 2,
 	                        .depth = 1,
 	                }});
+	return nullptr;
 }
 
 void video_encoder_va::PushFrame(bool idr, std::chrono::steady_clock::time_point pts)

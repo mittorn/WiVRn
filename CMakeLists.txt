@@ -26,6 +26,7 @@ option(WIVRN_BUILD_SERVER "Build WiVRn server" ON)
 
 auto_option(WIVRN_USE_NVENC "Enable nvenc (Nvidia) hardware encoder" AUTO)
 auto_option(WIVRN_USE_VAAPI "Enable vaapi (AMD/Intel) hardware encoder" AUTO)
+option(WIVRN_USE_VULKAN_ENCODE "Enable vulkan video encoder" ON)
 auto_option(WIVRN_USE_X264 "Enable x264 software encoder" AUTO)
 
 option(ENABLE_COLOURED_OUTPUT "Always produce ANSI-coloured output (GNU/Clang only)." ON)
@@ -131,8 +132,8 @@ FetchContent_Declare(libktx        URL https://github.com/KhronosGroup/KTX-Softw
 
 # Server dependencies
 FetchContent_Declare(monado
-    GIT_REPOSITORY   https://gitlab.freedesktop.org/monado/monado
-    GIT_TAG          57e937383967c7e7b38b5de71297c8f537a2489d
+    GIT_REPOSITORY   https://gitlab.freedesktop.org/xytovl/monado
+    GIT_TAG          2d39d5af988dcba0fc297b4bc671a163ebae7229
     )
 
 FetchContent_Declare(imgui

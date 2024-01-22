@@ -59,7 +59,7 @@ class VideoEncoderX264 : public VideoEncoder
 public:
 	VideoEncoderX264(wivrn_vk_bundle& vk, encoder_settings & settings, float fps);
 
-	void PresentImage(yuv_converter & src_yuv, vk::raii::CommandBuffer & cmd_buf) override;
+	vk::Semaphore PresentImage(yuv_converter & src_yuv, vk::raii::CommandBuffer & cmd_buf) override;
 
 	void Encode(bool idr, std::chrono::steady_clock::time_point pts) override;
 
