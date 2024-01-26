@@ -24,12 +24,10 @@
 #include "pidfd.h"
 #include "version.h"
 #include "wivrn_config.h"
-
-#include "avahi_publisher.h"
 #include "hostname.h"
 #include <shared/ipc_protocol.h>
 #include <util/u_file.h>
-
+#include <poll.h>
 // Insert the on load constructor to init trace marker.
 U_TRACE_TARGET_SETUP(U_TRACE_WHICH_SERVICE)
 
@@ -43,11 +41,6 @@ using namespace xrt::drivers::wivrn;
 
 std::unique_ptr<TCP> tcp;
 
-void avahi_set_bool_callback(AvahiWatch * w, int fd, AvahiWatchEvent event, void * userdata)
-{
-	bool * flag = (bool *)userdata;
-	*flag = true;
-}
 
 #ifdef WIVRN_USE_SYSTEMD
 std::string socket_path()
@@ -205,20 +198,20 @@ int inner_main(int argc, char * argv[])
 	{
 		try
 		{
-			avahi_publisher publisher(hostname().c_str(), "_wivrn._tcp", default_port, TXT);
+			//avahi_publisher publisher(hostname().c_str(), "_wivrn._tcp", default_port, TXT);
 
 			TCPListener listener(default_port);
-			bool client_connected = false;
+			bool client_connected = true;//false;
 			bool sigint_received = false;
 
-			AvahiWatch * watch_listener = publisher.watch_new(listener.get_fd(), AVAHI_WATCH_IN, &avahi_set_bool_callback, &client_connected);
-			AvahiWatch * watch_sigint = publisher.watch_new(sigint_fd, AVAHI_WATCH_IN, &avahi_set_bool_callback, &sigint_received);
+			//AvahiWatch * watch_listener = publisher.watch_new(listener.get_fd(), AVAHI_WATCH_IN, &avahi_set_bool_callback, &client_connected);
+			//AvahiWatch * watch_sigint = publisher.watch_new(sigint_fd, AVAHI_WATCH_IN, &avahi_set_bool_callback, &sigint_received);
 
-			while (publisher.iterate() && !client_connected && !sigint_received)
-				;
+			//while (publisher.iterate() && !client_connected && !sigint_received)
+//				;
 
-			publisher.watch_free(watch_listener);
-			publisher.watch_free(watch_sigint);
+//			publisher.watch_free(watch_listener);
+//			publisher.watch_free(watch_sigint);
 
 			if (client_connected)
 			{
@@ -377,7 +370,7 @@ int inner_main(int argc, char * argv[])
 			if (client_fd > 0)
 				close(client_fd);
 
-			run_cleanup_functions();
+//			run_cleanup_functions();
 		}
 	}
 	return EXIT_SUCCESS;
