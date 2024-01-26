@@ -1,0 +1,6 @@
+[submodule "pfr_non_boost"]
+	path = pfr_non_boost
+	url = https://github.com/apolukhin/pfr_non_boost
+[submodule "server/monado"]
+	path = server/monado
+	url = https://gitlab.freedesktop.org/monado/monado
