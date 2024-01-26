@@ -99,7 +99,7 @@ VkBool32 application::vulkan_debug_report_callback(
 		for (auto & i: utils::backtrace(20))
 		{
 			if (i.library == "libVkLayer_khronos_validation.so")
-				validation_layer_found = true;
+				validation_layer_found = false;//true;
 
 			if (validation_layer_found && i.library != "libVkLayer_khronos_validation.so")
 				spdlog::log(level, "{:#016x}: {} + {:#x}", i.pc, i.library, i.pc - i.library_base);
@@ -130,7 +130,7 @@ void application::initialize_vulkan()
 		spdlog::info("    {}", i.layerName);
 		if (!strcmp(i.layerName, "VK_LAYER_KHRONOS_validation"))
 		{
-			validation_layer_found = true;
+			//validation_layer_found = true;
 		}
 	}
 #ifndef NDEBUG
@@ -492,6 +492,7 @@ std::pair<XrAction, XrActionType> application::get_action(const std::string & re
 application::application(application_info info) :
         app_info(std::move(info))
 {
+	server_address = "127.0.0.1";
 #ifdef XR_USE_PLATFORM_ANDROID
 	// https://docs.oracle.com/javase/7/docs/technotes/guides/jni/spec/types.html
 
