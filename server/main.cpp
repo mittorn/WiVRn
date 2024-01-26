@@ -168,23 +168,23 @@ int inner_main(int argc, char * argv[])
 
 	u_trace_marker_init();
 
-	sigset_t sigint_mask;
-	sigemptyset(&sigint_mask);
-	sigaddset(&sigint_mask, SIGINT);
-	sigaddset(&sigint_mask, SIGTERM);
-
-	sigprocmask(SIG_BLOCK, &sigint_mask, nullptr);
-	int sigint_fd = signalfd(-1, &sigint_mask, 0);
+//	sigset_t sigint_mask;
+//	sigemptyset(&sigint_mask);
+//	sigaddset(&sigint_mask, SIGINT);
+//	sigaddset(&sigint_mask, SIGTERM);
+//
+//	sigprocmask(SIG_BLOCK, &sigint_mask, nullptr);
+//	int sigint_fd = signalfd(-1, &sigint_mask, 0);
 
 	// Create a pipe to quit monado properly
-	int pipe_fds[2];
-	if (pipe(pipe_fds) < 0)
-	{
-		perror("pipe");
-		return EXIT_FAILURE;
-	}
-	fcntl(pipe_fds[0], F_SETFD, FD_CLOEXEC);
-	fcntl(pipe_fds[1], F_SETFD, FD_CLOEXEC);
+//	int pipe_fds[2];
+//	if (pipe(pipe_fds) < 0)
+//	{
+//		perror("pipe");
+//		return EXIT_FAILURE;
+//	}
+//	fcntl(pipe_fds[0], F_SETFD, FD_CLOEXEC);
+//	fcntl(pipe_fds[1], F_SETFD, FD_CLOEXEC);
 
 	char protocol_string[17];
 	sprintf(protocol_string, "%016lx", xrt::drivers::wivrn::protocol_version);
@@ -229,9 +229,9 @@ int inner_main(int argc, char * argv[])
 			return EXIT_FAILURE;
 		}
 
-		pid_t client_pid = start_application();
+		//pid_t client_pid = start_application();
 
-		pid_t server_pid = fork();
+		pid_t server_pid = 0;//fork();
 
 		if (server_pid < 0)
 		{
@@ -241,16 +241,16 @@ int inner_main(int argc, char * argv[])
 		if (server_pid == 0)
 		{
 			// Unmask SIGTERM, keep SIGINT masked
-			sigset_t sigint_mask;
-			sigemptyset(&sigint_mask);
-			sigaddset(&sigint_mask, SIGTERM);
-			sigprocmask(SIG_UNBLOCK, &sigint_mask, nullptr);
-			close(sigint_fd);
+//			sigset_t sigint_mask;
+//			sigemptyset(&sigint_mask);
+//			sigaddset(&sigint_mask, SIGTERM);
+//			sigprocmask(SIG_UNBLOCK, &sigint_mask, nullptr);
+//			close(sigint_fd);
 
 			// Redirect stdin
-			dup2(pipe_fds[0], 0);
-			close(pipe_fds[0]);
-			close(pipe_fds[1]);
+//			dup2(pipe_fds[0], 0);
+//			close(pipe_fds[0]);
+//			close(pipe_fds[1]);
 
 			setenv("LISTEN_PID", std::to_string(getpid()).c_str(), true);
 
@@ -271,18 +271,18 @@ int inner_main(int argc, char * argv[])
 			tcp.reset();
 
 			int server_fd = pidfd_open(server_pid, 0);
-			int client_fd = client_pid > 0 ? pidfd_open(client_pid, 0) : -1;
+			int client_fd = -1;//client_pid > 0 ? pidfd_open(client_pid, 0) : -1;
 
 			pollfd fds[3]{};
-			fds[0].fd = sigint_fd;
-			fds[0].events = POLLIN;
-			fds[1].fd = server_fd;
-			fds[1].events = POLLIN;
-			fds[2].fd = client_fd;
-			fds[2].events = POLLIN;
+//			fds[0].fd = sigint_fd;
+//			fds[0].events = POLLIN;
+//			fds[1].fd = server_fd;
+//			fds[1].events = POLLIN;
+//			fds[2].fd = client_fd;
+//			fds[2].events = POLLIN;
 
 			bool server_running = true;
-			bool client_running = client_pid > 0;
+			bool client_running = false;//client_pid > 0;
 
 			while (!quit && server_running)
 			{
@@ -298,8 +298,8 @@ int inner_main(int argc, char * argv[])
 				{
 					// Server exited
 					waitpid_verbose(server_pid, "Server");
-
-					server_running = false;
+//
+//					server_running = false;
 					fds[1].fd = -1;
 				}
 
@@ -315,15 +315,15 @@ int inner_main(int argc, char * argv[])
 
 			// Quit the server and the client
 
-			if (client_running)
-				kill(-client_pid, SIGTERM);
+//			if (client_running)
+//				kill(-client_pid, SIGTERM);
 
 			if (server_running)
 			{
 				// FIXME: server doesn't listen on stdin when used in socket activation mode
 				// Write to the server's stdin to make it quit
-				char buffer[] = "\n";
-				(void)write(pipe_fds[1], &buffer, strlen(buffer));
+//				char buffer[] = "\n";
+//				(void)write(pipe_fds[1], &buffer, strlen(buffer));
 			}
 
 			// Wait until both the server and the client exit
@@ -359,16 +359,16 @@ int inner_main(int argc, char * argv[])
 					}
 
 					// Send SIGKILL if the client takes more than 1s to quit
-					if (client_running)
-					{
-						kill(-client_pid, SIGKILL);
-					}
+//					if (client_running)
+//					{
+//						kill(-client_pid, SIGKILL);
+//					}
 				}
 			}
 
-			close(server_fd);
-			if (client_fd > 0)
-				close(client_fd);
+//			close(server_fd);
+//			if (client_fd > 0)
+//				close(client_fd);
 
 //			run_cleanup_functions();
 		}
