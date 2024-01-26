@@ -23,7 +23,7 @@
 #include <cxxabi.h>
 #include <dlfcn.h>
 #include <span>
-#include <spdlog/fmt/fmt.h>
+//#include <spdlog/fmt/fmt.h>
 #include <stdlib.h>
 #include <string>
 #include <unordered_map>

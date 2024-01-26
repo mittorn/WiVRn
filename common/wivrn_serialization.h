@@ -19,10 +19,10 @@
 
 #pragma once
 
-#include "boost/pfr/core.hpp"
-#include "boost/pfr/tuple_size.hpp"
+#include "pfr/core.hpp"
+#include "pfr/tuple_size.hpp"
 #include <array>
-#include <boost/pfr.hpp>
+#include <pfr.hpp>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -287,7 +287,7 @@ struct serialization_traits<T, std::enable_if_t<std::is_aggregate_v<T> && !is_st
 	{
 		if constexpr (I > 0)
 			h.feed(",");
-		serialization_traits<boost::pfr::tuple_element_t<I, T>>::type_hash(h);
+		serialization_traits<pfr::tuple_element_t<I, T>>::type_hash(h);
 	}
 
 	template <size_t... I>
@@ -299,20 +299,20 @@ struct serialization_traits<T, std::enable_if_t<std::is_aggregate_v<T> && !is_st
 	static constexpr void type_hash(details::hash_context & h)
 	{
 		h.feed("structure{");
-		aux1(h, std::make_index_sequence<boost::pfr::tuple_size_v<T>>());
+		aux1(h, std::make_index_sequence<pfr::tuple_size_v<T>>());
 		h.feed("}");
 	}
 
 	static void serialize(const T & value, serialization_packet & packet)
 	{
-		boost::pfr::for_each_field(value, [&](const auto & x) { packet.serialize(x); });
+		pfr::for_each_field(value, [&](const auto & x) { packet.serialize(x); });
 	}
 
 	static T deserialize(deserialization_packet & packet)
 	{
 		T value;
 
-		boost::pfr::for_each_field(
+		pfr::for_each_field(
 		        value, [&](auto & x) { x = packet.deserialize<std::remove_reference_t<decltype(x)>>(); });
 
 		return value;

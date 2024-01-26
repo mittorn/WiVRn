@@ -1,4 +1,4 @@
-
+set(monado_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/monado)
 set(XRT_BUILD_DRIVER_ARDUINO            OFF)
 set(XRT_BUILD_DRIVER_DAYDREAM           OFF)
 set(XRT_BUILD_DRIVER_EUROC              OFF)
@@ -46,20 +46,14 @@ set(XRT_IPC_MSG_SOCK_FILENAME     "wivrn_comp_ipc" CACHE STRING "Service socket 
 set(XRT_IPC_SERVICE_PID_FILENAME  "wivrn.pid"      CACHE STRING "Service pidfile filename")
 set(XRT_OXR_RUNTIME_SUFFIX        "wivrn"          CACHE STRING "OpenXR client library suffix")
 
-FetchContent_GetProperties(monado)
-if(NOT monado_POPULATED)
-  # Fetch the content using previously declared details
-  FetchContent_Populate(monado)
-
-  # Bring the populated content into the build
-  add_subdirectory(${monado_SOURCE_DIR} ${monado_BINARY_DIR} EXCLUDE_FROM_ALL)
-endif()
+#FetchContent_GetProperties(monado)
+add_subdirectory(${monado_SOURCE_DIR} ${monado_BINARY_DIR} EXCLUDE_FROM_ALL)
 
 
 add_executable(wivrn-server
 		main.cpp
 		target_instance_wivrn.cpp
-		avahi_publisher.cpp
+		#avahi_publisher.cpp
 		hostname.cpp
 		wivrn_ipc.cpp
 
@@ -124,9 +118,10 @@ target_link_libraries(
 		xrt-external-openxr
 		xrt-interfaces
 
-		Boost::pfr
-		PkgConfig::AVAHI
-		PkgConfig::libpulse
+#		Boost::pfr
+#		PkgConfig::AVAHI
+#		PkgConfig::libpulse
+		pulse
 		Eigen3::Eigen
 		wivrn-common
 		wivrn-external
@@ -136,11 +131,11 @@ target_link_libraries(
 install(TARGETS wivrn-server)
 
 set_target_properties(${RUNTIME_TARGET} PROPERTIES EXCLUDE_FROM_ALL FALSE)
-generate_openxr_runtime_manifest_at_install(
-	RUNTIME_DIR_RELATIVE_TO_MANIFEST ../../../${CMAKE_INSTALL_LIBDIR}
-	RUNTIME_TARGET ${RUNTIME_TARGET}
-	DESTINATION share/openxr/1
-	RELATIVE_RUNTIME_DIR ${CMAKE_INSTALL_LIBDIR}
-	)
+#generate_openxr_runtime_manifest_at_install(
+#	RUNTIME_DIR_RELATIVE_TO_MANIFEST ../../../${CMAKE_INSTALL_LIBDIR}
+#	RUNTIME_TARGET ${RUNTIME_TARGET}
+#	DESTINATION share/openxr/1
+#	RELATIVE_RUNTIME_DIR ${CMAKE_INSTALL_LIBDIR}
+#	)
 install(TARGETS ${RUNTIME_TARGET}
 	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT Runtime)

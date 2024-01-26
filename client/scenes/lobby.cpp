@@ -18,7 +18,7 @@
  */
 
 #include "lobby.h"
-#include "render/text_rasterizer.h"
+//#include "render/text_rasterizer.h"
 #include "stream.h"
 #include "../common/version.h"
 #include "application.h"
@@ -30,8 +30,8 @@
 #include <cstdint>
 #include <glm/gtc/quaternion.hpp>
 #include <string>
-#include <tiny_gltf.h>
-#include <spdlog/spdlog.h>
+//#include <tiny_gltf.h>
+//#include <spdlog/spdlog.h>
 #include <vulkan/vulkan_enums.hpp>
 #include <vulkan/vulkan_raii.hpp>
 
@@ -39,8 +39,8 @@ static const std::string discover_service = "_wivrn._tcp.local.";
 
 scenes::lobby::~lobby() {}
 
-scenes::lobby::lobby() :
-        status_string_rasterizer(device, physical_device, commandpool, queue)//, renderer(device, physical_device, queue)
+scenes::lobby::lobby() //:
+//        status_string_rasterizer(device, physical_device, commandpool, queue)//, renderer(device, physical_device, queue)
 {
 	uint32_t width = swapchains[0].width();
 	uint32_t height = swapchains[0].height();
@@ -224,8 +224,8 @@ scenes::lobby::lobby() :
 
 void scenes::lobby::rasterize_status_string()
 {
-	status_string_rasterized_text = status_string_rasterizer.render(status_string);
-
+//	status_string_rasterized_text = status_string_rasterizer.render(status_string);
+#if 0
 	vk::ImageViewCreateInfo iv_info{
 		.image = (VkImage)status_string_rasterized_text.image,
 		.viewType = vk::ImageViewType::e2D,
@@ -263,7 +263,7 @@ void scenes::lobby::rasterize_status_string()
 	};
 
 	device.updateDescriptorSets(descriptor_write, {});
-
+#endif
 	last_status_string = status_string;
 }
 
@@ -448,7 +448,7 @@ void scenes::lobby::render_view(XrViewStateFlags flags, XrTime display_time, XrV
 	                             glm::vec3(view.pose.position.x, view.pose.position.y, view.pose.position.z)) *
 	              view_matrix;
 
-	float aspect_ratio = (float)status_string_rasterized_text.size.width / (float)status_string_rasterized_text.size.height;
+	float aspect_ratio = 1;//(float)status_string_rasterized_text.size.width / (float)status_string_rasterized_text.size.height;
 	glm::mat4 model_matrix{
 	        {aspect_ratio, 0, 0, 0},
 	        {0, 1, 0, 0},

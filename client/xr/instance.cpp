@@ -19,7 +19,6 @@
 
 #include "instance.h"
 
-#include "spdlog/fmt/fmt.h"
 #include "xr.h"
 #include "xr/details/enumerate.h"
 #include <cassert>
@@ -66,10 +65,10 @@ xr::instance::instance(std::string_view application_name, std::vector<const char
 	{
 		spdlog::info("    {}", i.layerName);
 #ifndef NDEBUG
-		if (!strcmp(i.layerName, "XR_APILAYER_LUNARG_core_validation"))
-		{
-			layers.push_back("XR_APILAYER_LUNARG_core_validation");
-		}
+//		if (!strcmp(i.layerName, "XR_APILAYER_LUNARG_core_validation"))
+//		{
+//			layers.push_back("XR_APILAYER_LUNARG_core_validation");
+//		}
 #endif
 	}
 
@@ -82,8 +81,8 @@ xr::instance::instance(std::string_view application_name, std::vector<const char
 #ifndef NDEBUG
 		if (!strcmp(i.extensionName, "XR_EXT_debug_utils"))
 		{
-			debug_utils_found = true;
-			extensions.push_back("XR_EXT_debug_utils");
+//			debug_utils_found = true;
+//			extensions.push_back("XR_EXT_debug_utils");
 		}
 #endif
 	}

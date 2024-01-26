@@ -12,7 +12,7 @@ endif()
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_STANDARD 20)
 
-include(FetchContent)
+#include(FetchContent)
 include(ExternalProject)
 include("cmake/AutoOption.cmake")
 
@@ -88,9 +88,9 @@ if (WIVRN_BUILD_SERVER)
         pkg_check_modules(SYSTEMD REQUIRED IMPORTED_TARGET systemd)
     endif()
 
-    pkg_check_modules(AVAHI REQUIRED IMPORTED_TARGET avahi-client)
-    pkg_check_modules(libpulse REQUIRED IMPORTED_TARGET libpulse)
     find_package(Eigen3 REQUIRED)
+    find_package(glm REQUIRED)
+    find_package(Freetype REQUIRED)
     find_package(nlohmann_json REQUIRED)
 endif()
 
@@ -108,19 +108,19 @@ if(ANDROID)
 endif()
 
 # Common dependencies
-FetchContent_Declare(boostpfr      URL https://github.com/boostorg/pfr/archive/refs/tags/2.0.3.tar.gz)
+#FetchContent_Declare(boostpfr      URL https://github.com/boostorg/pfr/archive/refs/tags/2.0.3.tar.gz)
 
 # Client dependencies
-FetchContent_Declare(glm           URL https://github.com/g-truc/glm/archive/refs/tags/0.9.9.8.tar.gz)
-FetchContent_Declare(openxr_loader URL https://github.com/KhronosGroup/OpenXR-SDK/archive/refs/tags/release-1.0.32.tar.gz)
-FetchContent_Declare(spdlog        URL https://github.com/gabime/spdlog/archive/refs/tags/v1.11.0.tar.gz)
-FetchContent_Declare(tinygltf      URL https://github.com/syoyo/tinygltf/archive/refs/tags/v2.6.3.tar.gz)
+#FetchContent_Declare(glm           URL https://github.com/g-truc/glm/archive/refs/tags/0.9.9.8.tar.gz)
+#FetchContent_Declare(openxr_loader URL https://github.com/KhronosGroup/OpenXR-SDK/archive/refs/tags/release-1.0.32.tar.gz)
+#FetchContent_Declare(spdlog        URL https://github.com/gabime/spdlog/archive/refs/tags/v1.11.0.tar.gz)
+#FetchContent_Declare(tinygltf      URL https://github.com/syoyo/tinygltf/archive/refs/tags/v2.6.3.tar.gz)
 
 # Server dependencies
-FetchContent_Declare(monado
-    GIT_REPOSITORY   https://gitlab.freedesktop.org/monado/monado
-    GIT_TAG          79bf8eb8fa168f65f4e5505e0525ee74aa88783e
-    )
+#FetchContent_Declare(monado
+#    GIT_REPOSITORY   https://gitlab.freedesktop.org/monado/monado
+#    GIT_TAG          79bf8eb8fa168f65f4e5505e0525ee74aa88783e
+#    )
 
 
 add_subdirectory(external)

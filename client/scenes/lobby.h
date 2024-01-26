@@ -22,12 +22,12 @@
 #include "scene.h"
 #include <vulkan/vulkan_raii.hpp>
 #include "wivrn_discover.h"
-#include <tiny_gltf.h>
+//#include <tiny_gltf.h>
 
 #include <optional>
 
 #include "render/scene_renderer.h"
-#include "render/text_rasterizer.h"
+//#include "render/text_rasterizer.h"
 
 namespace scenes
 {
@@ -38,12 +38,12 @@ class lobby : public scene
 	std::string status_string;
 	std::string last_status_string;
 	vk::raii::Sampler status_string_sampler = nullptr;
-	text status_string_rasterized_text;
+//	text status_string_rasterized_text;
 	vk::raii::ImageView status_string_image_view = nullptr;
 	vk::raii::DescriptorPool status_string_descriptor_pool = nullptr;
 	vk::raii::DescriptorSetLayout status_string_image_descriptor_set_layout = nullptr;
 	vk::DescriptorSet status_string_image_descriptor_set;
-	text_rasterizer status_string_rasterizer;
+//	text_rasterizer status_string_rasterizer;
 
 	vk::raii::RenderPass renderpass = nullptr;
 	vk::raii::PipelineLayout layout = nullptr;
@@ -62,7 +62,7 @@ class lobby : public scene
 
 	std::optional<wivrn_discover> discover;
 
-	tinygltf::Model model;
+//	tinygltf::Model model;
 	std::vector<vk::DeviceMemory> model_memory;
 	std::vector<vk::Buffer> model_buffers;
 	std::vector<vk::Image> model_images;

@@ -1,5 +1,5 @@
 
-FetchContent_MakeAvailable(boostpfr)
+#FetchContent_MakeAvailable(boostpfr)
 
 if (GIT_DESC)
     configure_file(version.cpp.in version.cpp)
@@ -24,7 +24,7 @@ add_library(wivrn-common STATIC
     ${CMAKE_CURRENT_BINARY_DIR}/version.cpp
 )
 
-target_link_libraries(wivrn-common PUBLIC Boost::pfr)
+target_link_libraries(wivrn-common PUBLIC)
 target_compile_features(wivrn-common PRIVATE cxx_std_20)
 
-target_include_directories(wivrn-common PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
+target_include_directories(wivrn-common PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/../pfr_non_boost/include/)

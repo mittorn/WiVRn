@@ -19,9 +19,9 @@
 
 #include "xr.h"
 
-#include "spdlog/fmt/fmt.h"
+//#include "spdlog/fmt/fmt.h"
 
 std::string xr::to_string(XrVersion version)
 {
-	return fmt::format("{}.{}.{}", XR_VERSION_MAJOR(version), XR_VERSION_MINOR(version), XR_VERSION_PATCH(version));
+	return "";//fmt::format("{}.{}.{}", XR_VERSION_MAJOR(version), XR_VERSION_MINOR(version), XR_VERSION_PATCH(version));
 }
