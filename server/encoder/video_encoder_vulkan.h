@@ -45,6 +45,7 @@ public:
 class video_encoder_vulkan : public xrt::drivers::wivrn::VideoEncoder
 {
 	wivrn_vk_bundle & vk;
+	const vk::VideoEncodeCapabilitiesKHR encode_caps;
 
 	vk::raii::Semaphore semaphore = nullptr;
 	vk::raii::Fence fence = nullptr;
@@ -78,14 +79,15 @@ class video_encoder_vulkan : public xrt::drivers::wivrn::VideoEncoder
 	        const vk::PhysicalDeviceVideoFormatInfoKHR &);
 
 	uint32_t frame_num = 0;
-	const vk::Extent2D extent;
+	const vk::Rect2D rect;
+	const float fps;
+	const uint64_t bitrate;
 
 protected:
-	video_encoder_vulkan(wivrn_vk_bundle & vk, vk::Extent2D extent) :
-	        vk(vk), extent(extent) {}
+	video_encoder_vulkan(wivrn_vk_bundle & vk, vk::Rect2D rect, vk::VideoEncodeCapabilitiesKHR encode_caps, float fps, uint64_t bitrate) :
+	        vk(vk), rect(rect), encode_caps(encode_caps), fps(fps), bitrate(bitrate) {}
 
 	void init(const vk::VideoCapabilitiesKHR & video_caps,
-	          const vk::VideoEncodeCapabilitiesKHR & encode_caps,
 	          const vk::VideoProfileInfoKHR & video_profile,
 	          void * video_session_create_next,
 	          void * session_params_next);

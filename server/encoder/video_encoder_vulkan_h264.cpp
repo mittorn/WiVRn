@@ -16,10 +16,11 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include "video_encoder_vulkan_h264.h"
+#include "util/u_logging.h"
 #include "utils/wivrn_vk_bundle.h"
 
-video_encoder_vulkan_h264::video_encoder_vulkan_h264(wivrn_vk_bundle & vk, vk::Extent2D extent) :
-        video_encoder_vulkan(vk, extent),
+video_encoder_vulkan_h264::video_encoder_vulkan_h264(wivrn_vk_bundle & vk, vk::Rect2D rect, vk::VideoEncodeCapabilitiesKHR encode_caps, float fps, uint64_t bitrate) :
+        video_encoder_vulkan(vk, rect, encode_caps, fps, bitrate),
         sps{
                 .flags =
                         {
@@ -36,7 +37,7 @@ video_encoder_vulkan_h264::video_encoder_vulkan_h264(wivrn_vk_bundle & vk, vk::E
                                 .separate_colour_plane_flag = 0,
                                 .gaps_in_frame_num_value_allowed_flag = 1,
                                 .qpprime_y_zero_transform_bypass_flag = 0,
-                                .frame_cropping_flag = (extent.width % 16) || (extent.height) % 16,
+                                .frame_cropping_flag = (rect.extent.width % 16) || (rect.extent.height) % 16,
                                 .seq_scaling_matrix_present_flag = 0,
                                 .vui_parameters_present_flag = 0,
                         },
@@ -54,12 +55,12 @@ video_encoder_vulkan_h264::video_encoder_vulkan_h264(wivrn_vk_bundle & vk, vk::E
                 .num_ref_frames_in_pic_order_cnt_cycle = 0,
                 .max_num_ref_frames = 1,
                 .reserved1 = 0,
-                .pic_width_in_mbs_minus1 = (extent.width - 1) / 16,
-                .pic_height_in_map_units_minus1 = (extent.height - 1) / 16,
+                .pic_width_in_mbs_minus1 = (rect.extent.width - 1) / 16,
+                .pic_height_in_map_units_minus1 = (rect.extent.height - 1) / 16,
                 .frame_crop_left_offset = 0,
-                .frame_crop_right_offset = (extent.width % 16) / 2,
+                .frame_crop_right_offset = (rect.extent.width % 16) / 2,
                 .frame_crop_top_offset = 0,
-                .frame_crop_bottom_offset = (extent.height % 16) / 2,
+                .frame_crop_bottom_offset = (rect.extent.height % 16) / 2,
                 .reserved2 = 0,
                 .pOffsetForRefFrame = nullptr,
                 .pScalingLists = nullptr,
@@ -108,9 +109,19 @@ std::vector<void *> video_encoder_vulkan_h264::setup_slot_info(size_t dpb_size)
 
 std::unique_ptr<video_encoder_vulkan_h264> video_encoder_vulkan_h264::create(
         wivrn_vk_bundle & vk,
-        const vk::Extent2D & extent)
+        xrt::drivers::wivrn::encoder_settings & settings,
+        float fps)
 {
-	std::unique_ptr<video_encoder_vulkan_h264> self(new video_encoder_vulkan_h264(vk, extent));
+	vk::Rect2D rect{
+	        .offset = {
+	                .x = settings.offset_x,
+	                .y = settings.offset_y,
+	        },
+	        .extent = {
+	                .width = settings.width,
+	                .height = settings.height,
+	        },
+	};
 
 	vk::StructureChain video_profile_info{
 	        vk::VideoProfileInfoKHR{
@@ -129,6 +140,20 @@ std::unique_ptr<video_encoder_vulkan_h264> video_encoder_vulkan_h264::create(
 	                .tuningMode = vk::VideoEncodeTuningModeKHR::eUltraLowLatency,
 	        }};
 
+	auto [video_caps, encode_caps, encode_h264_caps] =
+	        vk.physical_device.getVideoCapabilitiesKHR<
+	                vk::VideoCapabilitiesKHR,
+	                vk::VideoEncodeCapabilitiesKHR,
+	                vk::VideoEncodeH264CapabilitiesKHR>(video_profile_info.get());
+
+	if (encode_caps.rateControlModes & (vk::VideoEncodeRateControlModeFlagBitsKHR::eCbr | vk::VideoEncodeRateControlModeFlagBitsKHR::eVbr) and encode_caps.maxBitrate == 0)
+	{
+		U_LOG_W("Invalid encode capabilities");
+		encode_caps.rateControlModes = vk::VideoEncodeRateControlModeFlagBitsKHR::eDefault;
+	}
+
+	std::unique_ptr<video_encoder_vulkan_h264> self(new video_encoder_vulkan_h264(vk, rect, encode_caps, fps, settings.bitrate));
+
 	vk::VideoEncodeH264SessionParametersAddInfoKHR h264_add_info{};
 	h264_add_info.setStdSPSs(self->sps);
 	h264_add_info.setStdPPSs(self->pps);
@@ -139,17 +164,11 @@ std::unique_ptr<video_encoder_vulkan_h264> video_encoder_vulkan_h264::create(
 	        .pParametersAddInfo = &h264_add_info,
 	};
 
-	auto [video_caps, encode_caps, encode_h264_caps] =
-	        vk.physical_device.getVideoCapabilitiesKHR<
-	                vk::VideoCapabilitiesKHR,
-	                vk::VideoEncodeCapabilitiesKHR,
-	                vk::VideoEncodeH264CapabilitiesKHR>(video_profile_info.get());
-
 	vk::VideoEncodeH264SessionCreateInfoKHR session_create_info{
 	        .useMaxLevelIdc = false,
 	};
 
-	self->init(video_caps, encode_caps, video_profile_info.get(), &session_create_info, &h264_session_params);
+	self->init(video_caps, video_profile_info.get(), &session_create_info, &h264_session_params);
 
 	return self;
 }

@@ -57,7 +57,7 @@ std::unique_ptr<VideoEncoder> VideoEncoder::Create(
 	if (settings.encoder_name == encoder_vulkan)
 	{
 		settings.codec = video_codec::h264;
-		res = video_encoder_vulkan_h264::create(wivrn_vk, vk::Extent2D(settings.width, settings.height));
+		res = video_encoder_vulkan_h264::create(wivrn_vk, settings, fps);
 	}
 #endif
 #ifdef WIVRN_USE_X264

@@ -18,6 +18,7 @@
 #include "video_encoder_vulkan.h"
 
 #include "encoder/yuv_converter.h"
+#include "util/u_logging.h"
 #include "utils/wivrn_vk_bundle.h"
 #include <iostream>
 #include <stdexcept>
@@ -56,7 +57,6 @@ vk::VideoFormatPropertiesKHR video_encoder_vulkan::select_video_format(
 }
 
 void video_encoder_vulkan::init(const vk::VideoCapabilitiesKHR & video_caps,
-                                const vk::VideoEncodeCapabilitiesKHR & encode_caps,
                                 const vk::VideoProfileInfoKHR & video_profile,
                                 void * video_session_create_next,
                                 void * session_params_next)
@@ -89,8 +89,8 @@ void video_encoder_vulkan::init(const vk::VideoCapabilitiesKHR & video_caps,
 		}
 
 		vk::Extent3D aligned_extent{
-		        .width = align(extent.width, encode_caps.encodeInputPictureGranularity.width),
-		        .height = align(extent.height, encode_caps.encodeInputPictureGranularity.height),
+		        .width = align(rect.extent.width, encode_caps.encodeInputPictureGranularity.width),
+		        .height = align(rect.extent.height, encode_caps.encodeInputPictureGranularity.height),
 		        .depth = 1,
 		};
 
@@ -133,8 +133,8 @@ void video_encoder_vulkan::init(const vk::VideoCapabilitiesKHR & video_caps,
 		// TODO: use multiple images if array levels are not supported
 
 		vk::Extent3D aligned_extent{
-		        .width = align(extent.width, video_caps.pictureAccessGranularity.width),
-		        .height = align(extent.height, video_caps.pictureAccessGranularity.height),
+		        .width = align(rect.extent.width, video_caps.pictureAccessGranularity.width),
+		        .height = align(rect.extent.height, video_caps.pictureAccessGranularity.height),
 		        .depth = 1,
 		};
 
@@ -163,7 +163,7 @@ void video_encoder_vulkan::init(const vk::VideoCapabilitiesKHR & video_caps,
 	// Output buffer
 	{
 		// very conservative bound
-		output_buffer_size = extent.width * extent.height * 3;
+		output_buffer_size = rect.extent.width * rect.extent.height * 3;
 		output_buffer_size = align(output_buffer_size, video_caps.minBitstreamBufferSizeAlignment);
 		output_buffer = buffer_allocation(
 		        vk.device,
@@ -188,7 +188,7 @@ void video_encoder_vulkan::init(const vk::VideoCapabilitiesKHR & video_caps,
 		                //.flags = vk::VideoSessionCreateFlagBitsKHR::eAllowEncodeParameterOptimizations,
 		                .pVideoProfile = &video_profile,
 		                .pictureFormat = picture_format.format,
-		                .maxCodedExtent = extent,
+		                .maxCodedExtent = rect.extent,
 		                .referencePictureFormat = reference_picture_format.format,
 		                .maxDpbSlots = num_dpb_slots,
 		                .maxActiveReferencePictures = 1,
@@ -256,7 +256,7 @@ void video_encoder_vulkan::init(const vk::VideoCapabilitiesKHR & video_caps,
 		{
 			dpb_resource.push_back(
 			        {
-			                .codedExtent = extent,
+			                .codedExtent = rect.extent,
 			                .imageViewBinding = *dpb_image_view,
 			        });
 		}
@@ -314,6 +314,19 @@ void video_encoder_vulkan::init(const vk::VideoCapabilitiesKHR & video_caps,
 
 		command_buffer = std::move(vk.device.allocateCommandBuffers({.commandPool = *command_pool,
 		                                                             .commandBufferCount = 1})[0]);
+	}
+
+	U_LOG_D("Supported rate control modes: %s", vk::to_string(encode_caps.rateControlModes).c_str());
+
+	if (encode_caps.rateControlModes & (vk::VideoEncodeRateControlModeFlagBitsKHR::eCbr | vk::VideoEncodeRateControlModeFlagBitsKHR::eVbr))
+	{
+		U_LOG_D("Maximum bitrate: %ld", encode_caps.maxBitrate / 1'000'000);
+		if (encode_caps.maxBitrate < bitrate)
+		{
+			U_LOG_W("Configured bitrate %ldMB/s is higher than max supported %ld",
+			        bitrate / 1'000'000,
+			        encode_caps.maxBitrate / 1'000'000);
+		}
 	}
 }
 
@@ -378,7 +391,40 @@ void video_encoder_vulkan::PostSubmit()
 
 	if (frame_num == 0)
 	{
-		command_buffer.controlVideoCodingKHR({.flags = vk::VideoCodingControlFlagBitsKHR::eReset});
+		// Initialize encoding session and rate control
+		vk::VideoEncodeRateControlLayerInfoKHR rate_control_layer{
+		        .averageBitrate = std::min(bitrate, encode_caps.maxBitrate),
+		        .maxBitrate = std::min(2 * bitrate, encode_caps.maxBitrate),
+		        .frameRateNumerator = uint32_t(fps * 1'000'000),
+		        .frameRateDenominator = 1'000'000,
+		};
+		vk::VideoEncodeRateControlInfoKHR rate_control{
+		        .layerCount = 1,
+		        .pLayers = &rate_control_layer,
+		        .virtualBufferSizeInMs = uint32_t(5'000 / fps),
+		};
+		vk::VideoCodingControlInfoKHR control_info{
+		        .pNext = &rate_control,
+		        .flags = vk::VideoCodingControlFlagBitsKHR::eReset | vk::VideoCodingControlFlagBitsKHR::eEncodeRateControl,
+		};
+		if (encode_caps.rateControlModes & vk::VideoEncodeRateControlModeFlagBitsKHR::eCbr)
+		{
+			rate_control.rateControlMode = vk::VideoEncodeRateControlModeFlagBitsKHR::eCbr;
+		}
+		else if (encode_caps.rateControlModes & vk::VideoEncodeRateControlModeFlagBitsKHR::eVbr)
+		{
+			rate_control.rateControlMode = vk::VideoEncodeRateControlModeFlagBitsKHR::eVbr;
+		}
+		else
+		{
+			U_LOG_W("No suitable rate control available, reverting to default");
+			rate_control.setLayers({});
+			rate_control.rateControlMode = vk::VideoEncodeRateControlModeFlagBitsKHR::eDefault;
+			rate_control_layer.averageBitrate = 0;
+		}
+		command_buffer.controlVideoCodingKHR(control_info);
+
+		// Set decoded picture buffer to correct layout
 		vk::ImageMemoryBarrier2 dpb_barrier{
 		        .srcStageMask = vk::PipelineStageFlagBits2KHR::eNone,
 		        .srcAccessMask = vk::AccessFlagBits2::eNone,
@@ -405,7 +451,7 @@ void video_encoder_vulkan::PostSubmit()
 	        .dstBuffer = output_buffer,
 	        .dstBufferOffset = 0,
 	        .dstBufferRange = output_buffer_size,
-	        .srcPictureResource = {.codedExtent = extent,
+	        .srcPictureResource = {.codedExtent = rect.extent,
 	                               .baseArrayLayer = 0,
 	                               .imageViewBinding = *input_image_view},
 	        .pSetupReferenceSlot = &dpb_slots[slot],
@@ -484,15 +530,25 @@ vk::Semaphore video_encoder_vulkan::PresentImage(yuv_converter & src_yuv, vk::ra
 	        vk::ImageLayout::eTransferSrcOptimal,
 	        input_image,
 	        vk::ImageLayout::eTransferDstOptimal,
-	        vk::ImageCopy{.srcSubresource = {
-	                              .aspectMask = vk::ImageAspectFlagBits::eColor,
-	                              .layerCount = 1,
-	                      },
-	                      .dstSubresource = {
-	                              .aspectMask = vk::ImageAspectFlagBits::ePlane0,
-	                              .layerCount = 1,
-	                      },
-	                      .extent = {extent.width, extent.height, 1}});
+	        vk::ImageCopy{
+	                .srcSubresource = {
+	                        .aspectMask = vk::ImageAspectFlagBits::eColor,
+	                        .layerCount = 1,
+	                },
+	                .srcOffset = {
+	                        .x = rect.offset.x,
+	                        .y = rect.offset.y,
+	                },
+	                .dstSubresource = {
+	                        .aspectMask = vk::ImageAspectFlagBits::ePlane0,
+	                        .layerCount = 1,
+	                },
+	                .extent = {
+	                        rect.extent.width,
+	                        rect.extent.height,
+	                        1,
+	                },
+	        });
 	cmd_buf.copyImage(
 	        src_yuv.chroma,
 	        vk::ImageLayout::eTransferSrcOptimal,
@@ -502,11 +558,19 @@ vk::Semaphore video_encoder_vulkan::PresentImage(yuv_converter & src_yuv, vk::ra
 	                              .aspectMask = vk::ImageAspectFlagBits::eColor,
 	                              .layerCount = 1,
 	                      },
+	                      .srcOffset = {
+	                              .x = rect.offset.x / 2,
+	                              .y = rect.offset.y / 2,
+	                      },
 	                      .dstSubresource = {
 	                              .aspectMask = vk::ImageAspectFlagBits::ePlane1,
 	                              .layerCount = 1,
 	                      },
-	                      .extent = {extent.width / 2, extent.height / 2, 1}});
+	                      .extent = {
+	                              rect.extent.width / 2,
+	                              rect.extent.height / 2,
+	                              1,
+	                      }});
 
 	barrier.srcStageMask = vk::PipelineStageFlagBits2KHR::eTransfer;
 	barrier.srcAccessMask = vk::AccessFlagBits2::eTransferWrite;
