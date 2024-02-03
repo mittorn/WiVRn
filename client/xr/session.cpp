@@ -232,6 +232,15 @@ std::vector<float> xr::session::get_refresh_rates()
 	return {};
 }
 
+void xr::session::set_refresh_rate(float refresh_rate)
+{
+	static auto xrRequestDisplayRefreshRateFB = inst->get_proc<PFN_xrRequestDisplayRefreshRateFB>("xrRequestDisplayRefreshRateFB");
+
+	if (xrRequestDisplayRefreshRateFB)
+		CHECK_XR(xrRequestDisplayRefreshRateFB(id, refresh_rate));
+}
+
+
 void xr::session::sync_actions(XrActionSet action_set, XrPath subaction_path)
 {
 	XrActiveActionSet active_action_set{

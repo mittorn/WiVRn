@@ -223,9 +223,9 @@ wivrn_hmd::wivrn_hmd(std::shared_ptr<xrt::drivers::wivrn::wivrn_session> cnx,
 	auto eye_width = 3120;//info.recommended_eye_width;   // * config.scale.value_or(1);
 	auto eye_height = 3120;//info.recommended_eye_height; // * config.scale.value_or(1);
 	auto scale = config.scale.value_or(std::array<double, 2>{1., 1.});
-	auto foveated_eye_width = 1600;//eye_width * scale[0];
-	auto foveated_eye_height = 1592;//eye_height * scale[1];
-	fps = 90;//info.preferred_refresh_rate;
+	auto foveated_eye_width = 1600;//info.recommended_eye_width * scale[0];
+	auto foveated_eye_height = 1592;//info.recommended_eye_height * scale[1];
+//	fps = 90;
 
 	// Setup info.
 	hmd->blend_modes[0] = XRT_BLEND_MODE_OPAQUE;
@@ -234,7 +234,7 @@ wivrn_hmd::wivrn_hmd(std::shared_ptr<xrt::drivers::wivrn::wivrn_session> cnx,
 	hmd->distortion.preferred = XRT_DISTORTION_MODEL_COMPUTE;
 	hmd->screens[0].w_pixels = foveated_eye_width * 2;
 	hmd->screens[0].h_pixels = foveated_eye_height;
-	hmd->screens[0].nominal_frame_interval_ns = 1000000000 / fps;
+	hmd->screens[0].nominal_frame_interval_ns = 1000000000 / info.preferred_refresh_rate;
 
 	// Left
 	hmd->views[0].display.w_pixels = eye_width;
