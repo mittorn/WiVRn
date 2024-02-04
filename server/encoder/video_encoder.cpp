@@ -124,7 +124,12 @@ void VideoEncoder::SendData(std::span<uint8_t> data, bool end_of_frame)
 				shard.flags |= to_headset::video_stream_data_shard::end_of_frame;
 		}
 		shard.payload = {begin, next};
-		cnx->send_stream(shard);
+		// First frame contains essential data (encoder configuration).
+		// Send it on a reliable socket so client always receives it.
+		if (shard.frame_idx == 0)
+			cnx->send_control(shard);
+		else
+			cnx->send_stream(shard);
 		++shard.shard_idx;
 		shard.flags = 0;
 		shard.view_info.reset();
