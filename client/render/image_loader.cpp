@@ -185,12 +185,10 @@ void image_loader::do_load_raw(const void * pixels, vk::Extent3D extent, vk::For
 	this->extent = extent;
 	if (extent.depth > 1)
 	{
-		// image_type = vk::ImageType::e3D;
 		image_view_type = vk::ImageViewType::e3D;
 	}
 	else
 	{
-		// image_type = vk::ImageType::e2D;
 		image_view_type = vk::ImageViewType::e2D;
 	}
 	num_mipmaps = std::floor(std::log2(std::max(extent.width, extent.height))) + 1;
