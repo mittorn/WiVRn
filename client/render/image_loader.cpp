@@ -24,6 +24,7 @@
 #include <cstdint>
 #include <memory>
 #include <span>
+#include <stdexcept>
 #include <variant>
 #include <vulkan/vulkan_raii.hpp>
 #include <ktxvulkan.h>
@@ -464,11 +465,14 @@ void image_loader::load(std::span<const std::byte> bytes, bool srgb)
 }
 
 // Load raw pixel data
-void image_loader::load(const void * pixels, vk::Extent3D extent_, vk::Format format_)
+void image_loader::load(const void * pixels, size_t size, vk::Extent3D extent_, vk::Format format_)
 {
 	extent = extent_;
 	format = format_;
 	image_view_type = vk::ImageViewType::e2D;
+
+	if (size < extent.width * extent.height * extent.depth * bytes_per_pixel(format))
+		throw std::invalid_argument("size");
 
 	do_load_raw(pixels, extent_, format_);
 
