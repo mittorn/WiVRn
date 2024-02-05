@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <chrono>
 #ifdef __ANDROID__
 #include <android_native_app_glue.h>
 #endif
@@ -90,6 +91,13 @@ class application : public singleton<application>
 	vk::raii::CommandPool vk_cmdpool = nullptr;
 	vk::raii::PipelineCache pipeline_cache = nullptr;
 
+	vk::PhysicalDeviceProperties physical_device_properties;
+
+	// Timestamp queries
+	vk::raii::QueryPool query_pool = nullptr;
+	std::vector<vk::raii::CommandBuffer> query_command_buffers;
+	int current_query = 0;
+
 	// OpenXR stuff
 	void initialize_actions();
 
@@ -125,6 +133,8 @@ class application : public singleton<application>
 	std::mutex scene_stack_lock;
 	std::vector<std::shared_ptr<scene>> scene_stack;
 	std::weak_ptr<scene> last_scene;
+	std::chrono::nanoseconds last_scene_cpu_time;
+	std::chrono::nanoseconds last_scene_gpu_time;
 
 	void loop();
 
@@ -361,9 +371,18 @@ public:
 		return instance().config_path;
 	}
 
-
 	static const std::filesystem::path& get_cache_path()
 	{
 		return instance().cache_path;
+	}
+
+	static std::chrono::nanoseconds get_cpu_time()
+	{
+		return instance().last_scene_cpu_time;
+	}
+
+	static std::chrono::nanoseconds get_gpu_time()
+	{
+		return instance().last_scene_gpu_time;
 	}
 };

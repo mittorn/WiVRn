@@ -29,6 +29,7 @@
 #include <thread>
 #include <vulkan/vulkan_core.h>
 #include "audio/audio.h"
+#include "render/imgui_impl.h"
 
 namespace scenes
 {
@@ -84,9 +85,12 @@ class stream : public scene_impl<stream>, public std::enable_shared_from_this<st
 	const float dbrightness = 2;
 
 	std::vector<xr::swapchain> swapchains;
+	xr::swapchain swapchain_imgui;
 	vk::Format swapchain_format;
 
 	std::optional<audio> audio_handle;
+
+	std::optional<imgui_context> imgui_ctx;
 
 	stream() = default;
 
@@ -95,7 +99,7 @@ public:
 
 	static std::shared_ptr<stream> create(std::unique_ptr<wivrn_session> session);
 
-	void render() override;
+	void render(XrTime predicted_display_time, bool should_render) override;
 
 	void operator()(to_headset::handshake&&) {};
 	void operator()(to_headset::video_stream_data_shard &&);
@@ -129,5 +133,7 @@ private:
 
 	void setup(const to_headset::video_stream_description &);
 	void exit();
+
+	XrCompositionLayerQuad plot_performance_metrics(XrTime predicted_display_time);
 };
 } // namespace scenes

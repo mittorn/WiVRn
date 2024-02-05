@@ -17,8 +17,6 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include <vulkan/vulkan.hpp>
-#include <vulkan/vulkan_enums.hpp>
 #include <vulkan/vulkan_raii.hpp>
 #define GLM_FORCE_RADIANS
 
@@ -38,6 +36,7 @@
 #include <vulkan/vulkan_core.h>
 #include "audio/audio.h"
 #include "hardware.h"
+#include "implot.h"
 
 using namespace xrt::drivers::wivrn;
 
@@ -69,6 +68,12 @@ static const std::unordered_map<std::string, device_id> device_ids = {
 	{"/user/hand/right/input/thumbrest/touch",  device_id::RIGHT_THUMBREST_TOUCH},
 };
 // clang-format on
+
+static const std::array supported_formats =
+{
+	vk::Format::eR8G8B8A8Srgb,
+	vk::Format::eB8G8R8A8Srgb
+};
 
 std::shared_ptr<scenes::stream> scenes::stream::create(std::unique_ptr<wivrn_session> network_session)
 {
@@ -136,6 +141,45 @@ std::shared_ptr<scenes::stream> scenes::stream::create(std::unique_ptr<wivrn_ses
 
 		self->input_actions.emplace_back(it->second, action, action_type);
 	}
+
+	self->swapchain_format = vk::Format::eUndefined;
+	spdlog::info("Supported swapchain formats:");
+
+	for (auto format: self->session.get_swapchain_formats())
+	{
+		spdlog::info("    {}", vk::to_string(format));
+	}
+	for (auto format: self->session.get_swapchain_formats())
+	{
+		if (std::find(supported_formats.begin(), supported_formats.end(), format) != supported_formats.end())
+		{
+			self->swapchain_format = format;
+			break;
+		}
+	}
+
+	if (self->swapchain_format == vk::Format::eUndefined)
+		throw std::runtime_error("No supported swapchain format");
+
+	spdlog::info("Using format {}", vk::to_string(self->swapchain_format));
+
+	// TODO optional
+	self->swapchain_imgui = xr::swapchain(
+		self->session,
+		self->device,
+		self->swapchain_format,
+		1500, 1000);
+
+	self->imgui_ctx.emplace(self->physical_device,
+				self->device,
+				self->queue_family_index,
+				self->queue,
+				self->view_space,
+				std::span<imgui_context::controller>{},
+				self->swapchain_imgui,
+				glm::vec2{1.0, 0.6666});
+
+	self->imgui_ctx->set_position({0,0,-1}, {1,0,0,0});
 
 	return self;
 }
@@ -234,21 +278,88 @@ std::shared_ptr<shard_accumulator::blit_handle> scenes::stream::accumulator_imag
 	return nullptr;
 }
 
-void scenes::stream::render()
+XrCompositionLayerQuad scenes::stream::plot_performance_metrics(XrTime predicted_display_time)
+{
+	imgui_ctx->new_frame(predicted_display_time);
+
+	ImGui::SetNextWindowPos({0, 0});
+	ImGui::SetNextWindowSize(ImGui::GetMainViewport()->Size);
+	ImGui::Begin("Performance metrics", nullptr,
+		ImGuiWindowFlags_NoTitleBar |
+		ImGuiWindowFlags_NoResize |
+		ImGuiWindowFlags_NoMove);
+
+	float win_width = ImGui::GetWindowSize().x;
+	float win_height = ImGui::GetWindowSize().y;
+
+	ImGuiStyle & style = ImGui::GetStyle();
+	ImVec2 plot_size{
+		win_width / 2 - style.ItemSpacing.x / 2,
+		win_height / 2
+	};
+
+	static std::array<float, 300> cpu_time;
+	static std::array<float, 300> gpu_time;
+	static int offset = 0;
+
+	float min_v = 0;
+	float max_v = 20;
+
+
+	cpu_time[offset] = application::get_cpu_time().count() * 1.0e-6;
+	gpu_time[offset] = application::get_gpu_time().count() * 1.0e-6;
+	offset = (offset + 1) % cpu_time.size();
+
+	ImPlot::PushStyleColor(ImPlotCol_PlotBg, IM_COL32(32, 32, 32, 64));
+	ImPlot::PushStyleColor(ImPlotCol_FrameBg, IM_COL32(0, 0, 0, 0));
+	ImPlot::PushStyleColor(ImPlotCol_AxisBg, IM_COL32(0, 0, 0, 0));
+	ImPlot::PushStyleColor(ImPlotCol_AxisBgActive, IM_COL32(0, 0, 0, 0));
+	ImPlot::PushStyleColor(ImPlotCol_AxisBgHovered, IM_COL32(0, 0, 0, 0));
+
+	if (ImPlot::BeginPlot("CPU time", plot_size, ImPlotFlags_CanvasOnly|ImPlotFlags_NoChild))
+	{
+		auto col = ImPlot::GetColormapColor(0);
+
+		ImPlot::SetupAxes(nullptr, "CPU time", ImPlotAxisFlags_NoDecorations, 0);
+		ImPlot::SetupAxesLimits(0, cpu_time.size() - 1, min_v, max_v, ImGuiCond_Always);
+		ImPlot::SetNextLineStyle(col);
+		ImPlot::SetNextFillStyle(col, 0.25);
+		ImPlot::PlotLine("CPU time", cpu_time.data(), cpu_time.size(), 1, 0, ImPlotLineFlags_Shaded, offset);
+		ImPlot::EndPlot();
+	}
+
+	ImGui::SameLine();
+
+	if (ImPlot::BeginPlot("GPU time", plot_size, ImPlotFlags_CanvasOnly|ImPlotFlags_NoChild))
+	{
+		auto col = ImPlot::GetColormapColor(1);
+
+		ImPlot::SetupAxes(nullptr,"GPU time [ms]", ImPlotAxisFlags_NoDecorations, 0);
+		ImPlot::SetupAxesLimits(0, gpu_time.size() - 1, min_v, max_v, ImGuiCond_Always);
+		ImPlot::SetNextLineStyle(col);
+		ImPlot::SetNextFillStyle(col, 0.25);
+		ImPlot::PlotLine("GPU time", gpu_time.data(), gpu_time.size(), 1, 0, ImPlotLineFlags_Shaded, offset);
+		ImPlot::EndPlot();
+	}
+	ImPlot::PopStyleColor(5);
+	ImGui::End();
+
+	return imgui_ctx->end_frame();
+}
+
+void scenes::stream::render(XrTime predicted_display_time, bool should_render)
 {
 	if (exiting)
 		application::pop_scene();
 
-	XrFrameState framestate = session.wait_frame();
-
 	if (decoders.empty())
-		framestate.shouldRender = false;
+		should_render = false;
 
-	if (!framestate.shouldRender)
+	if (!should_render)
 	{
 		// TODO: stop/restart video stream
 		session.begin_frame();
-		session.end_frame(framestate.predictedDisplayTime, {});
+		session.end_frame(predicted_display_time, {});
 
 		std::unique_lock lock(decoder_mutex);
 		for (auto & i: decoders)
@@ -262,7 +373,7 @@ void scenes::stream::render()
 
 	session.begin_frame();
 
-	auto [flags, views] = session.locate_views(viewconfig, framestate.predictedDisplayTime, world_space);
+	auto [flags, views] = session.locate_views(viewconfig, predicted_display_time, world_space);
 	assert(views.size() == swapchains.size());
 
 	std::array<int, view_count> image_indices;
@@ -326,7 +437,7 @@ void scenes::stream::render()
 			current_blit_handles.push_back(blit_handle);
 
 			blit_handle->feedback.blitted = application::now();
-			blit_handle->feedback.displayed = framestate.predictedDisplayTime;
+			blit_handle->feedback.displayed = predicted_display_time;
 			blit_handle->feedback.real_pose[0] = views[0].pose;
 			blit_handle->feedback.real_pose[1] = views[1].pose;
 
@@ -392,7 +503,7 @@ void scenes::stream::render()
 		layer_view[swapchain_index].subImage.imageRect.extent.height = swapchains[swapchain_index].height();
 	}
 
-	float brightness = std::clamp<float>(dbrightness * (framestate.predictedDisplayTime - first_frame_time) / 1.e9, 0, 1);
+	float brightness = std::clamp<float>(dbrightness * (predicted_display_time - first_frame_time) / 1.e9, 0, 1);
 
 	XrCompositionLayerColorScaleBiasKHR color_scale_bias{
 	        .type = XR_TYPE_COMPOSITION_LAYER_COLOR_SCALE_BIAS_KHR,
@@ -410,8 +521,16 @@ void scenes::stream::render()
 	if (instance.has_extension(XR_KHR_COMPOSITION_LAYER_COLOR_SCALE_BIAS_EXTENSION_NAME))
 		layer.next = &color_scale_bias;
 
+	XrCompositionLayerQuad imgui_layer;
+	if (imgui_ctx)
+		imgui_layer = plot_performance_metrics(predicted_display_time);
+
 	layers_base.push_back(reinterpret_cast<XrCompositionLayerBaseHeader *>(&layer));
-	session.end_frame(/*timestamp*/ framestate.predictedDisplayTime, layers_base);
+
+	if (imgui_ctx)
+		layers_base.push_back(reinterpret_cast<XrCompositionLayerBaseHeader *>(&imgui_layer));
+
+	session.end_frame(/*timestamp*/ predicted_display_time, layers_base);
 
 	// Network operations may be blocking, do them once everything was submitted
 	for (const auto& handle: current_blit_handles)
@@ -434,12 +553,6 @@ void scenes::stream::exit()
 	shard_queue.close();
 }
 
-static const std::array supported_formats =
-{
-	vk::Format::eR8G8B8A8Srgb,
-	vk::Format::eB8G8R8A8Srgb
-};
-
 void scenes::stream::setup(const to_headset::video_stream_description & description)
 {
 	std::unique_lock lock(decoder_mutex);
@@ -459,27 +572,6 @@ void scenes::stream::setup(const to_headset::video_stream_description & descript
 	const uint32_t video_height = description.height;
 	const uint32_t swapchain_width = video_width / description.foveation[0].x.scale;
 	const uint32_t swapchain_height = video_height / description.foveation[0].y.scale;
-
-	swapchain_format = vk::Format::eUndefined;
-	spdlog::info("Supported swapchain formats:");
-
-	for (auto format: session.get_swapchain_formats())
-	{
-		spdlog::info("    {}", vk::to_string(format));
-	}
-	for (auto format: session.get_swapchain_formats())
-	{
-		if (std::find(supported_formats.begin(), supported_formats.end(), format) != supported_formats.end())
-		{
-			swapchain_format = format;
-			break;
-		}
-	}
-
-	if (swapchain_format == vk::Format::eUndefined)
-		throw std::runtime_error("No supported swapchain format");
-
-	spdlog::info("Using format {}", vk::to_string(swapchain_format));
 
 	auto views = system.view_configuration_views(viewconfig);
 

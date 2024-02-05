@@ -125,7 +125,8 @@ FetchContent_Declare(glm           URL https://github.com/g-truc/glm/archive/ref
 FetchContent_Declare(openxr_loader URL https://github.com/KhronosGroup/OpenXR-SDK/archive/refs/tags/release-1.0.32.tar.gz)
 FetchContent_Declare(spdlog        URL https://github.com/gabime/spdlog/archive/refs/tags/v1.11.0.tar.gz)
 FetchContent_Declare(stb           URL https://github.com/nothings/stb/archive/refs/heads/master.zip)
-FetchContent_Declare(libktx        URL https://github.com/KhronosGroup/KTX-Software/archive/refs/tags/v4.3.0-beta1.tar.gz)
+FetchContent_Declare(libktx        URL https://github.com/KhronosGroup/KTX-Software/archive/refs/tags/v4.3.0.tar.gz)
+FetchContent_Declare(implot        URL https://github.com/epezent/implot/archive/refs/tags/v0.16.tar.gz)
 
 # Server dependencies
 FetchContent_Declare(monado
