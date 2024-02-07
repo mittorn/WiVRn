@@ -163,25 +163,34 @@ std::shared_ptr<scenes::stream> scenes::stream::create(std::unique_ptr<wivrn_ses
 
 	spdlog::info("Using format {}", vk::to_string(self->swapchain_format));
 
+	return self;
+}
+
+void scenes::stream::on_focused()
+{
 	// TODO optional
-	self->swapchain_imgui = xr::swapchain(
-		self->session,
-		self->device,
-		self->swapchain_format,
+	swapchain_imgui = xr::swapchain(
+		session,
+		device,
+		swapchain_format,
 		1500, 1000);
 
-	self->imgui_ctx.emplace(self->physical_device,
-				self->device,
-				self->queue_family_index,
-				self->queue,
-				self->view_space,
-				std::span<imgui_context::controller>{},
-				self->swapchain_imgui,
-				glm::vec2{1.0, 0.6666});
+	imgui_ctx.emplace(physical_device,
+			  device,
+			  queue_family_index,
+			  queue,
+			  view_space,
+			  std::span<imgui_context::controller>{},
+			  swapchain_imgui,
+			  glm::vec2{1.0, 0.6666});
 
-	self->imgui_ctx->set_position({0,0,-1}, {1,0,0,0});
+	imgui_ctx->set_position({0,0,-1}, {1,0,0,0});
 
-	return self;
+}
+
+void scenes::stream::on_unfocused()
+{
+	imgui_ctx.reset();
 }
 
 scenes::stream::~stream()

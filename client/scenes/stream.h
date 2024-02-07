@@ -100,6 +100,8 @@ public:
 	static std::shared_ptr<stream> create(std::unique_ptr<wivrn_session> session);
 
 	void render(XrTime predicted_display_time, bool should_render) override;
+	void on_unfocused() override;
+	void on_focused() override;
 
 	void operator()(to_headset::handshake&&) {};
 	void operator()(to_headset::video_stream_data_shard &&);
