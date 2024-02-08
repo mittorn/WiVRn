@@ -72,9 +72,9 @@ void scenes::stream::tracking()
 	        {device_id::RIGHT_GRIP, application::right_grip()}};
 
 	XrSpace view_space = application::view();
-	const XrDuration tracking_period = 10'000'000; // Send tracking data every 10ms
+	const XrDuration tracking_period = 3'300'000; // Send tracking data every 10ms
 	const XrDuration dt = 1'000'000;               // Wake up 1ms before measuring the position
-	const XrDuration extrapolation_horizon = 1;    // 50'000'000;
+	const XrDuration extrapolation_horizon = 11'000'000;    // 50'000'000;
 
 	XrTime t0 = instance.now();
 	t0 = t0 - t0 % tracking_period;
