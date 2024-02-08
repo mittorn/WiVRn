@@ -49,7 +49,7 @@ if(ANDROID)
     endif()
 
 
-    target_link_libraries(wivrn native_app_glue)
+    target_link_libraries(wivrn log)
     target_compile_definitions(wivrn PRIVATE -DXR_USE_PLATFORM_ANDROID -DVK_USE_PLATFORM_ANDROID_KHR)
     target_link_options(wivrn PRIVATE -Wl,--undefined=ANativeActivity_onCreate)
 
@@ -96,6 +96,7 @@ target_compile_definitions(wivrn PRIVATE VULKAN_HPP_NO_STRUCT_CONSTRUCTORS VMA_V
 set_target_properties(wivrn PROPERTIES CXX_VISIBILITY_PRESET hidden)
 
 file(GLOB LOCAL_SOURCE CONFIGURE_DEPENDS
+	"*.c"
     "*.cpp"
     "decoder/*.cpp"
     "scenes/*.cpp"
@@ -108,7 +109,7 @@ file(GLOB_RECURSE VULKAN_SHADERS CONFIGURE_DEPENDS "*.glsl")
 target_sources(wivrn PRIVATE ${LOCAL_SOURCE} ${VULKAN_SHADERS})
 wivrn_compile_glsl(wivrn ${VULKAN_SHADERS})
 
-target_link_libraries(wivrn Vulkan::Vulkan glm::glm fmt)#// tinygltf)
+target_link_libraries(wivrn Vulkan::Vulkan)# glm::glm fmt)#// tinygltf)
 target_compile_definitions(wivrn PRIVATE -DXR_USE_GRAPHICS_API_VULKAN)
 target_compile_definitions(wivrn PRIVATE -DVMA_STATS_STRING_ENABLED=0)
 target_compile_options(wivrn PRIVATE -fdiagnostics-color -Wall -Wextra -pedantic) # -Werror

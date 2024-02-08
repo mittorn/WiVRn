@@ -103,8 +103,9 @@ set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 if(ANDROID)
     set(ANDROID_NDK $ENV{ANDROID_NDK_ROOT})
     set(CMAKE_ANDROID_NDK $ENV{ANDROID_NDK_ROOT})
-    include(AndroidNdkModules)
-    android_ndk_import_module_native_app_glue()
+#    include(AndroidNdkModules)
+#    android_ndk_import_module_native_app_glue()
+	include_directories(${ANDROID_NDK}/sources/android/native_app_glue/)
 endif()
 
 # Common dependencies
