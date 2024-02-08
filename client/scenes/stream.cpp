@@ -369,8 +369,8 @@ void scenes::stream::render()
 	for (size_t view = 0; view < view_count; view++)
 	{
 		size_t destination_index = view * swapchains[0].images().size() + image_indices[view];
-//		reprojector->reproject(command_buffer, view, destination_index, pose[view].orientation, fov[view], pose[view].orientation, views[view].fov);
-		reprojector->reproject(command_buffer, view, destination_index, pose[view].orientation, fov[view], views[view].pose.orientation, views[view].fov);
+		reprojector->reproject(command_buffer, view, destination_index, pose[view].orientation, fov[view], pose[view].orientation, views[view].fov);
+//		reprojector->reproject(command_buffer, view, destination_index, pose[view].orientation, fov[view], views[view].pose.orientation, views[view].fov);
 	}
 
 	command_buffer.end();
@@ -388,8 +388,8 @@ void scenes::stream::render()
 
 		layer_view[swapchain_index].type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW;
 
-		layer_view[swapchain_index].pose = views[swapchain_index].pose;
-//		layer_view[swapchain_index].pose = g_last_pose[swapchain_index];
+//		layer_view[swapchain_index].pose = views[swapchain_index].pose;
+		layer_view[swapchain_index].pose = g_last_pose[swapchain_index];
 
 		layer_view[swapchain_index].fov = views[swapchain_index].fov;
 
