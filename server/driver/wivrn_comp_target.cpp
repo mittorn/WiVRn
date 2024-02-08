@@ -503,7 +503,11 @@ static void * comp_wivrn_present_thread(void * void_param)
 		{
 			for (auto & encoder: param->encoders)
 			{
+//				uint64_t time_begin = os_monotonic_get_ns();
 				encoder->Encode(*cn->cnx, psc_image.view_info, psc_image.frame_index, presenting_index);
+//				uint64_t time_end = os_monotonic_get_ns();
+//				printf("encode time %d\n", (int)(time_end - time_begin));
+				
 			}
 		}
 		catch (...)
@@ -530,6 +534,7 @@ static VkResult comp_wivrn_present(struct comp_target * ct,
 {
 	struct wivrn_comp_target * cn = (struct wivrn_comp_target *)ct;
 	struct vk_bundle * vk = get_vk(cn);
+//	uint64_t time_begin = os_monotonic_get_ns();
 
 	assert(index < cn->image_count);
 
@@ -582,14 +587,20 @@ static VkResult comp_wivrn_present(struct comp_target * ct,
 	view_info.display_time = cn->cnx->get_offset().to_headset(desired_present_time_ns).count();
 	for (int eye = 0; eye < 2; ++eye)
 	{
-		xrt_relation_chain xrc{};
-		xrt_space_relation result{};
-		m_relation_chain_push_pose_if_not_identity(&xrc, &cn->c->base.slot.poses[eye]);
-		m_relation_chain_resolve(&xrc, &result);
+		//xrt_relation_chain xrc{};
+		//xrt_space_relation result{};
+		//m_relation_chain_push_pose_if_not_identity(&xrc, &cn->c->base.slot.poses[eye]);
+		//m_relation_chain_resolve(&xrc, &result);
 		view_info.fov[eye] = xrt_cast(cn->c->base.slot.fovs[eye]);
-		view_info.pose[eye] = xrt_cast(result.pose);
+		view_info.pose[eye] = xrt_cast(cn->c->base.slot.poses[eye]);
+		if(cn->c->base.slot.layer_count && cn->c->base.slot.layers[0].data.stereo.r.fov.angle_left != 0.0f)
+			view_info.pose[eye] = xrt_cast(eye?cn->c->base.slot.layers[0].data.stereo.r.pose:cn->c->base.slot.layers[0].data.stereo.l.pose);
+		
+//		view_info.pose[eye] = xrt_cast(result.pose);
 	}
 	cn->psc.cv.notify_all();
+//	uint64_t time_end = os_monotonic_get_ns();
+//	printf("present time %d\n", (int)(time_end - time_begin));
 
 	return VK_SUCCESS;
 }
@@ -607,17 +618,18 @@ static void comp_wivrn_calc_frame_pacing(struct comp_target * ct,
                                          uint64_t * out_predicted_display_time_ns)
 {
 	struct wivrn_comp_target * cn = (struct wivrn_comp_target *)ct;
+	static uint64_t last_time;
+	uint64_t now_ns = os_monotonic_get_ns();
 
-	int64_t frame_id /*= ++cn->current_frame_id*/; //-1;
-	uint64_t desired_present_time_ns /*= cn->next_frame_timestamp*/;
-	uint64_t wake_up_time_ns /*= desired_present_time_ns - 5 * U_TIME_1MS_IN_NS*/;
-	uint64_t present_slop_ns /*= U_TIME_HALF_MS_IN_NS*/;
-	uint64_t predicted_display_time_ns /*= desired_present_time_ns + 5 * U_TIME_1MS_IN_NS*/;
+	int64_t frame_id = ++cn->current_frame_id; //-1;
+	uint64_t desired_present_time_ns = last_time + U_TIME_1S_IN_NS / 90;//cn->next_frame_timestamp;
+	uint64_t wake_up_time_ns = desired_present_time_ns - 6 * U_TIME_1MS_IN_NS;
+	uint64_t present_slop_ns = U_TIME_HALF_MS_IN_NS*4;
+	uint64_t predicted_display_time_ns = desired_present_time_ns + U_TIME_1S_IN_NS / 90;// + 6 * U_TIME_1MS_IN_NS;
 
 #if 1
-	uint64_t predicted_display_period_ns = U_TIME_1S_IN_NS / 60;
+	uint64_t predicted_display_period_ns = U_TIME_1S_IN_NS / 90;
 	uint64_t min_display_period_ns = predicted_display_period_ns;
-	uint64_t now_ns = os_monotonic_get_ns();
 
 	u_pc_predict(cn->upc,                      //
 	             now_ns,                       //
@@ -630,8 +642,12 @@ static void comp_wivrn_calc_frame_pacing(struct comp_target * ct,
 	             &min_display_period_ns);      //
 
 	cn->current_frame_id = frame_id;
+	int64_t time_diff = predicted_display_period_ns - (now_ns - last_time) - 1000000;
+	//wake_up_time_ns = now_ns + (time_diff > 0? time_diff: 0);
+	wake_up_time_ns -= 100000;
 
 #endif
+	last_time = now_ns;
 
 	*out_frame_id = frame_id;
 	*out_wake_up_time_ns = wake_up_time_ns;
@@ -705,11 +721,35 @@ void wivrn_comp_target::on_feedback(const from_headset::feedback & feedback, con
 		encoders[feedback.stream_index]->SyncNeeded();
 	}
 }
+static 	xrt_result_t (*orig_predict_frame)(struct xrt_compositor *xc,
+	                              int64_t *out_frame_id,
+	                              uint64_t *out_wake_time_ns,
+	                              uint64_t *out_predicted_gpu_time_ns,
+	                              uint64_t *out_predicted_display_time_ns,
+	                              uint64_t *out_predicted_display_period_ns);
+
+static 	xrt_result_t wivrn_predict_frame(struct xrt_compositor *xc,
+	                              int64_t *out_frame_id,
+	                              uint64_t *out_wake_time_ns,
+	                              uint64_t *out_predicted_gpu_time_ns,
+	                              uint64_t *out_predicted_display_time_ns,
+	                              uint64_t *out_predicted_display_period_ns)
+{
+	xrt_result_t ret = orig_predict_frame(xc, out_frame_id, out_wake_time_ns, out_predicted_gpu_time_ns, out_predicted_display_time_ns, out_predicted_display_period_ns);
+//	if(*out_predicted_display_time_ns - *out_wake_time_ns >= *out_predicted_display_period_ns / 3)
+//		*out_wake_time_ns = 0;
+//	if((*out_predicted_display_time_ns) - (*out_wake_time_ns) >= (*out_predicted_display_period_ns) / 3 )
+//		*out_wake_time_ns = 0;
+	return ret;
+}
+
+
 
 wivrn_comp_target::wivrn_comp_target(std::shared_ptr<xrt::drivers::wivrn::wivrn_session> cnx, struct comp_compositor * c, float fps) :
         comp_target{},
         cnx(cnx)
 {
+	c->debug.atw_off = true;
 	check_ready = comp_wivrn_check_ready;
 	create_images = comp_wivrn_create_images;
 	has_images = comp_wivrn_has_images;
@@ -724,6 +764,9 @@ wivrn_comp_target::wivrn_comp_target(std::shared_ptr<xrt::drivers::wivrn::wivrn_
 	init_post_vulkan = comp_wivrn_init_post_vulkan;
 	set_title = comp_wivrn_set_title;
 	flush = comp_wivrn_flush;
+//	orig_predict_frame = c->base.base.base.predict_frame;
+//	c->base.base.base.predict_frame = wivrn_predict_frame;
+	
 	this->fps = fps;
 	this->c = c;
 }
