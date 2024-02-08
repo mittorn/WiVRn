@@ -386,7 +386,7 @@ void application::initialize()
 	for (auto view: views)
 	{
 		view = override_view(view, guess_model());
-		xr_swapchains.emplace_back(xr_session, vk_device, swapchain_format, view.recommendedImageRectWidth, view.recommendedImageRectHeight);
+		xr_swapchains.emplace_back(xr_session, vk_device, swapchain_format, 3120, 3120);//view.recommendedImageRectWidth, view.recommendedImageRectHeight);
 
 		spdlog::info("Created swapchain {}: {}x{}", xr_swapchains.size(), xr_swapchains.back().width(), xr_swapchains.back().height());
 	}
@@ -651,6 +651,7 @@ void application::loop()
 			}
 
 			scene->render();
+//			std::this_thread::sleep_for(1ms);
 		}
 		else
 		{

@@ -93,7 +93,7 @@ xrt_result_t xrt::drivers::wivrn::wivrn_session::create_session(xrt::drivers::wi
 	}
 
 	const auto & info = std::get<from_headset::headset_info_packet>(*control);
-
+#if 1
 	try
 	{
 		self->audio_handle = audio_device::create(
@@ -110,6 +110,7 @@ xrt_result_t xrt::drivers::wivrn::wivrn_session::create_session(xrt::drivers::wi
 		U_LOG_E("Failed to register audio device: %s", e.what());
 		return XRT_ERROR_DEVICE_CREATION_FAILED;
 	}
+#endif
 	self->hmd = std::make_unique<wivrn_hmd>(self, info);
 	self->left_hand = std::make_unique<wivrn_controller>(0, self->hmd.get(), self);
 	self->right_hand = std::make_unique<wivrn_controller>(1, self->hmd.get(), self);
@@ -128,7 +129,7 @@ xrt_result_t xrt::drivers::wivrn::wivrn_session::create_session(xrt::drivers::wi
 
 	u_system_devices_static_finalize(usysds, self->left_hand.get(), self->right_hand.get());
 
-	wivrn_comp_target_factory ctf(self, info.preferred_refresh_rate);
+	wivrn_comp_target_factory ctf(self, 90);
 	auto xret = comp_main_create_system_compositor(self->hmd.get(), &ctf, out_xsysc);
 	if (xret != XRT_SUCCESS)
 	{

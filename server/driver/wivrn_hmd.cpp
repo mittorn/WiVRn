@@ -220,12 +220,12 @@ wivrn_hmd::wivrn_hmd(std::shared_ptr<xrt::drivers::wivrn::wivrn_session> cnx,
 
 	const auto config = configuration::read_user_configuration();
 
-	auto eye_width = info.recommended_eye_width;   // * config.scale.value_or(1);
-	auto eye_height = info.recommended_eye_height; // * config.scale.value_or(1);
+	auto eye_width = 3120;//info.recommended_eye_width;   // * config.scale.value_or(1);
+	auto eye_height = 3120;//info.recommended_eye_height; // * config.scale.value_or(1);
 	auto scale = config.scale.value_or(std::array<double, 2>{1., 1.});
-	auto foveated_eye_width = info.recommended_eye_width * scale[0];
-	auto foveated_eye_height = info.recommended_eye_height * scale[1];
-	fps = info.preferred_refresh_rate;
+	auto foveated_eye_width = 1600;//eye_width * scale[0];
+	auto foveated_eye_height = 1592;//eye_height * scale[1];
+	fps = 90;//info.preferred_refresh_rate;
 
 	// Setup info.
 	hmd->blend_modes[0] = XRT_BLEND_MODE_OPAQUE;
