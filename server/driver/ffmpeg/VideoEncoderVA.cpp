@@ -146,6 +146,11 @@ VideoEncoderVA::VideoEncoderVA(vk_bundle * vk, const xrt::drivers::wivrn::encode
 
 	AVDictionary * opts = nullptr;
 	av_dict_set(&opts, "async_depth", "1", 0);
+	av_dict_set(&opts, "idr_interval", "2147483647", 0);
+	av_opt_set(encoder_ctx->priv_data, "rc_mode", "CBR", 0);
+	av_opt_set_int(encoder_ctx->priv_data, "idr_interval", INT_MAX, 0);
+	av_opt_set_int(encoder_ctx->priv_data, "async_depth", 1, 0);
+
 	for (auto option: settings.options)
 	{
 		av_dict_set(&opts, option.first.c_str(), option.second.c_str(), 0);
@@ -169,7 +174,11 @@ VideoEncoderVA::VideoEncoderVA(vk_bundle * vk, const xrt::drivers::wivrn::encode
 	encoder_ctx->pix_fmt = AV_PIX_FMT_VAAPI;
 	encoder_ctx->max_b_frames = 0;
 	encoder_ctx->bit_rate = settings.bitrate;
-	//encoder_ctx->gop_size = std::numeric_limits<decltype(encoder_ctx->gop_size)>::max();
+	encoder_ctx->gop_size = 32767;//std::numeric_limits<decltype(encoder_ctx->gop_size)>::max();
+	encoder_ctx->compression_level = 1U | (2U << 1) | (1U << 4);
+	encoder_ctx->rc_buffer_size = encoder_ctx->bit_rate / 90.0 * 1.1;
+	encoder_ctx->rc_max_rate = encoder_ctx->bit_rate;
+	encoder_ctx->rc_initial_buffer_occupancy = encoder_ctx->rc_buffer_size / 4 * 3;
 
 	set_hwframe_ctx(encoder_ctx.get(), hw_ctx_vaapi.get());
 
