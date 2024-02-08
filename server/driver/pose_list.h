@@ -67,11 +67,15 @@ public:
 		{
 			return {};
 		}
+		return data.back();
 
 		if (data.size() == 1)
 		{
 			return data[0];
 		}
+//		if(data.size() == 10)
+//			return interpolate(data[data.size() - 2], data[data.size() - 1], 0.5);
+//		return data.back();
 
 		if (data.front().at_timestamp_ns > at_timestamp_ns)
 		{
