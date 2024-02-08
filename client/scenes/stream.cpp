@@ -206,7 +206,20 @@ std::optional<uint64_t> scenes::stream::accumulator_images::common_frame(const s
 			return {};
 	}
 	assert(not common_frames.empty());
-	return common_frames.back();
+	static uint64_t frame_index;
+
+	// next frame if availiable
+	for (auto it = common_frames.begin(); it != common_frames.end(); ++it)
+		if(*it == frame_index + 1)
+			return ++frame_index;
+
+	// too slow? keep on current frame
+	for (auto it = common_frames.begin(); it != common_frames.end(); ++it)
+		if(*it == frame_index)
+			return frame_index;
+
+	// select oldest frame to allow it go smoother
+	return (frame_index = common_frames.front());
 }
 
 std::shared_ptr<shard_accumulator::blit_handle> scenes::stream::accumulator_images::frame(std::optional<uint64_t> id)
@@ -220,7 +233,12 @@ std::shared_ptr<shard_accumulator::blit_handle> scenes::stream::accumulator_imag
 		return *it;
 	}
 	return nullptr;
+//	if(latest_frames[0])
+//		frame_index = latest_frames[0]->feedback.frame_index;
+//	return latest_frames[3];//nullptr;//latest_frames[0];
 }
+static std::array<XrPosef, 2> g_last_pose;
+static bool g_pose_present;
 
 void scenes::stream::render()
 {
@@ -293,6 +311,7 @@ void scenes::stream::render()
 	std::vector<std::shared_ptr<shard_accumulator::blit_handle>> current_blit_handles;
 
 	std::array<XrPosef, 2> pose = {views[0].pose, views[1].pose};
+	if(!g_pose_present) g_last_pose = pose;
 	std::array<XrFovf, 2> fov = {views[0].fov, views[1].fov};
 	{
 		std::lock_guard lock(decoder_mutex);
@@ -315,6 +334,8 @@ void scenes::stream::render()
 			blit_handle->feedback.real_pose[1] = views[1].pose;
 
 			pose = blit_handle->view_info.pose;
+			g_last_pose = blit_handle->view_info.pose;
+			g_pose_present = true;
 			fov = blit_handle->view_info.fov;
 
 			send_feedback(blit_handle->feedback);
@@ -348,6 +369,7 @@ void scenes::stream::render()
 	for (size_t view = 0; view < view_count; view++)
 	{
 		size_t destination_index = view * swapchains[0].images().size() + image_indices[view];
+//		reprojector->reproject(command_buffer, view, destination_index, pose[view].orientation, fov[view], pose[view].orientation, views[view].fov);
 		reprojector->reproject(command_buffer, view, destination_index, pose[view].orientation, fov[view], views[view].pose.orientation, views[view].fov);
 	}
 
@@ -367,6 +389,8 @@ void scenes::stream::render()
 		layer_view[swapchain_index].type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW;
 
 		layer_view[swapchain_index].pose = views[swapchain_index].pose;
+//		layer_view[swapchain_index].pose = g_last_pose[swapchain_index];
+
 		layer_view[swapchain_index].fov = views[swapchain_index].fov;
 
 		layer_view[swapchain_index].subImage.swapchain = swapchains[swapchain_index];
