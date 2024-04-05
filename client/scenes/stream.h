@@ -75,7 +75,13 @@ class stream : public scene, public std::enable_shared_from_this<stream>
 	vk::raii::Fence fence = nullptr;
 	vk::raii::CommandBuffer command_buffer = nullptr;
 
-	std::array<std::pair<XrAction, XrPath>, 2> haptics_actions;
+	struct haptics_action
+	{
+		XrAction action;
+		XrPath path;
+		std::atomic<float> amplitude;
+	};
+	std::array<haptics_action, 2> haptics_actions;
 	std::vector<std::tuple<device_id, XrAction, XrActionType>> input_actions;
 
 	bool ready_ = false;
