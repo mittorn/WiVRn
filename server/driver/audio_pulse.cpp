@@ -133,11 +133,11 @@ struct pulse_device : public audio_device
 				remainder = (remainder + size) % sample_size;
 			}
 		}
+			while (not quit)
+			{
 
 		try
 		{
-			while (not quit)
-			{
 				pollfd pfd{};
 				pfd.fd = speaker_pipe.get_fd();
 				pfd.events = POLLIN;
@@ -173,10 +173,10 @@ struct pulse_device : public audio_device
 					memmove(buffer.data(), buffer.data() + size, remainder);
 				}
 			}
-		}
 		catch (const std::exception & e)
 		{
 			U_LOG_E("Error in audio thread: %s", e.what());
+		}
 		}
 	}
 
@@ -187,10 +187,10 @@ struct pulse_device : public audio_device
 //		printf("mic %p\n", desc.microphone);
 
 		const size_t sample_size = desc.microphone->num_channels * sizeof(int16_t);
+		while (1)//not quit)
+		{
 		try
 		{
-			while (1)//not quit)
-			{
 //				printf("micr %d\n", sample_size);
 #if 1
 				pollfd pfd{};
@@ -226,10 +226,10 @@ struct pulse_device : public audio_device
 					// Discard anything that didn't fit the buffer
 				}
 			}
-		}
 		catch (const std::exception & e)
 		{
 			U_LOG_E("Error in audio thread: %s", e.what());
+		}
 		}
 	}
 
