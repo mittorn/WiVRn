@@ -84,6 +84,8 @@ struct encoder_thread_param
 
 static void * comp_wivrn_present_thread(void * void_param);
 
+to_headset::video_stream_description gDesc;
+
 static void create_encoders(wivrn_comp_target * cn, std::vector<encoder_settings> & _settings)
 {
 	auto vk = get_vk(cn);
@@ -132,6 +134,7 @@ static void create_encoders(wivrn_comp_target * cn, std::vector<encoder_settings
 		os_thread_helper_name(&thread.thread, name.c_str());
 	}
 	cn->cnx->send_control(desc);
+	gDesc = desc;
 }
 
 class drm_image_modifier_helper
@@ -587,16 +590,28 @@ static VkResult comp_wivrn_present(struct comp_target * ct,
 	view_info.display_time = cn->cnx->get_offset().to_headset(desired_present_time_ns).count();
 	for (int eye = 0; eye < 2; ++eye)
 	{
-		//xrt_relation_chain xrc{};
-		//xrt_space_relation result{};
-		//m_relation_chain_push_pose_if_not_identity(&xrc, &cn->c->base.slot.poses[eye]);
-		//m_relation_chain_resolve(&xrc, &result);
-		view_info.fov[eye] = xrt_cast(cn->c->base.slot.fovs[eye]);
-		view_info.pose[eye] = xrt_cast(cn->c->base.slot.poses[eye]);
-		if(cn->c->base.slot.layer_count && cn->c->base.slot.layers[0].data.stereo.r.fov.angle_left != 0.0f)
-			view_info.pose[eye] = xrt_cast(eye?cn->c->base.slot.layers[0].data.stereo.r.pose:cn->c->base.slot.layers[0].data.stereo.l.pose);
-		
-//		view_info.pose[eye] = xrt_cast(result.pose);
+		const auto &slot = cn->c->base.slot;
+		view_info.fov[eye] = xrt_cast(slot.fovs[eye]);
+		view_info.pose[eye] = xrt_cast(slot.poses[eye]);
+		if (slot.layer_count == 1 && 
+			slot.layers[0].data.type == XRT_LAYER_STEREO_PROJECTION &&
+			slot.layers[0].data.stereo.r.fov.angle_left != 0.0f)
+		{
+			// only stereo projection is visible, may skip ATW
+			const auto &stereo = slot.layers[0].data.stereo;
+			view_info.pose[eye] = xrt_cast(eye?stereo.r.pose:stereo.l.pose);
+			cn->c->debug.atw_off = true;
+		}
+		else
+		{
+			// enable ATW
+			cn->c->debug.atw_off = false;
+			xrt_relation_chain xrc{};
+			xrt_space_relation result{};
+			m_relation_chain_push_pose_if_not_identity(&xrc, &slot.poses[eye]);
+			m_relation_chain_resolve(&xrc, &result);
+			view_info.pose[eye] = xrt_cast(result.pose);
+		}
 	}
 	cn->psc.cv.notify_all();
 //	uint64_t time_end = os_monotonic_get_ns();

@@ -159,6 +159,14 @@ void waitpid_verbose(pid_t pid, const std::string & name)
 	}
 }
 
+static TCPListener *pListener;
+
+TCP AcceptConnection()
+{
+	return pListener->accept().first;
+}
+	TCPListener listener(default_port);
+
 int inner_main(int argc, char * argv[])
 {
 	std::cerr << "WiVRn " << xrt::drivers::wivrn::git_version << " starting" << std::endl;
@@ -200,7 +208,7 @@ int inner_main(int argc, char * argv[])
 		{
 			//avahi_publisher publisher(hostname().c_str(), "_wivrn._tcp", default_port, TXT);
 
-			TCPListener listener(default_port);
+			pListener = &listener;
 			bool client_connected = true;//false;
 			bool sigint_received = false;
 

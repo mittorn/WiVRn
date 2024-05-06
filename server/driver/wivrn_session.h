@@ -40,6 +40,8 @@ struct xrt_space_overseer;
 struct xrt_system_compositor;
 struct wivrn_comp_target_factory;
 
+extern TCP AcceptConnection();
+
 namespace xrt::drivers::wivrn
 {
 struct wivrn_comp_target;

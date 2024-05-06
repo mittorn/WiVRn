@@ -75,6 +75,9 @@ void xrt::drivers::wivrn::UDP::bind(int port)
 	bind_addr.sin6_addr = IN6ADDR_ANY_INIT;
 	bind_addr.sin6_port = htons(port);
 
+	int reuse = 1;
+	setsockopt(	fd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(int));
+
 	if (::bind(fd, (sockaddr *)&bind_addr, sizeof(bind_addr)) < 0)
 		throw std::system_error{errno, std::generic_category()};
 }

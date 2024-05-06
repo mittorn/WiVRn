@@ -166,9 +166,13 @@ clock_offset wivrn_session::get_offset()
 	return offset;
 }
 
+extern to_headset::video_stream_description gDesc;
+
 void wivrn_session::operator()(from_headset::headset_info_packet &&)
 {
 	U_LOG_W("unexpected headset info packet, ignoring");
+	send_control(audio_handle->description());
+	send_control(gDesc);
 }
 void wivrn_session::operator()(from_headset::tracking && tracking)
 {
@@ -244,11 +248,12 @@ void wivrn_session::run(std::weak_ptr<wivrn_session> weak_self)
 {
 	while (true)
 	{
-		try
+		//try
 		{
 			auto self = weak_self.lock();
 			if (self and not self->quit)
 			{
+				try{
 				if (std::chrono::steady_clock::now() > self->offset_expiration)
 				{
 					self->offset_expiration = std::chrono::steady_clock::now() + std::chrono::seconds(1);
@@ -257,13 +262,21 @@ void wivrn_session::run(std::weak_ptr<wivrn_session> weak_self)
 					self->connection.send_stream(timesync);
 				}
 				self->connection.poll(*self, 20);
+				}
+				catch(const std::exception & e)
+				{
+					//self->connection.~wivrn_connection();
+					new(&self->connection) wivrn_connection(std::move(AcceptConnection()));
+					continue;
+				}
 			}
 			else
 				return;
 		}
-		catch (const std::exception & e)
+		/*catch (const std::exception & e)
 		{
 			U_LOG_E("Exception in network thread: %s", e.what());
+			continue;
 			auto self = weak_self.lock();
 			if (self)
 			{
@@ -271,7 +284,7 @@ void wivrn_session::run(std::weak_ptr<wivrn_session> weak_self)
 				exit(0);
 			}
 			return;
-		}
+		}*/
 	}
 }
 
