@@ -20,6 +20,7 @@
 #include <iostream>
 #include <poll.h>
 #include <sys/poll.h>
+#include <signal.h>
 
 static const char * source_name = "WiVRn-mic";
 static const char * sink_name = "WiVRn";
@@ -58,6 +59,7 @@ module_entry ensure_source( const char * name, const std::string & description, 
 	std::filesystem::path fifo = get_socket_path() / source_pipe;
 	module_entry source = {0};
 	source.socket = fifo;
+	signal(SIGPIPE, SIG_IGN);
 	return source;
 }
 
@@ -144,7 +146,17 @@ struct pulse_device : public audio_device
 				if (r < 0)
 					throw std::system_error(errno, std::system_category());
 				if (pfd.revents & (POLLHUP | POLLERR))
-					throw std::runtime_error("Error on speaker pipe");
+				{
+					close(speaker_pipe.get_fd());
+					speaker_pipe = -1;
+					while(not speaker_pipe)
+					{
+						sleep(1);
+						speaker_pipe = open("/run/user/1000/wivrn-sink", O_RDONLY | O_NONBLOCK);
+					}
+					
+				}
+				//	throw std::runtime_error("Error on speaker pipe");
 				if (pfd.revents & POLLIN)
 				{
 					int size = read(pfd.fd, buffer.data() + remainder, buffer_size - remainder);
@@ -189,7 +201,17 @@ struct pulse_device : public audio_device
 				if (r < 0)
 					throw std::system_error(errno, std::system_category());
 				if (pfd.revents & (POLLHUP | POLLERR))
-					throw std::runtime_error("Error on mic pipe");
+				{
+					close(mic_pipe.get_fd());
+					mic_pipe = -1;
+					while(not mic_pipe)
+					{
+						sleep(1);
+						mic_pipe = open("/run/user/1000/wivrn-source", O_WRONLY | O_NONBLOCK);
+					}
+				}
+					//throw std::runtime_error("Error on mic pipe");
+					
 				if (pfd.revents & POLLOUT)
 				{
 #endif
