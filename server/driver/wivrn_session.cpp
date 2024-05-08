@@ -173,6 +173,9 @@ void wivrn_session::operator()(from_headset::headset_info_packet &&)
 	U_LOG_W("unexpected headset info packet, ignoring");
 	send_control(audio_handle->description());
 	send_control(gDesc);
+	comp_target->request_sync(0);
+	sleep(2);
+	comp_target->request_sync(1);
 }
 void wivrn_session::operator()(from_headset::tracking && tracking)
 {
@@ -266,7 +269,9 @@ void wivrn_session::run(std::weak_ptr<wivrn_session> weak_self)
 				catch(const std::exception & e)
 				{
 					//self->connection.~wivrn_connection();
+					self->comp_target->request_sync(0);
 					new(&self->connection) wivrn_connection(std::move(AcceptConnection()));
+					sleep(2);
 					continue;
 				}
 			}

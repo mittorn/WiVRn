@@ -176,6 +176,7 @@ struct pulse_device : public audio_device
 		catch (const std::exception & e)
 		{
 			U_LOG_E("Error in audio thread: %s", e.what());
+			sleep(3);
 		}
 		}
 	}
@@ -187,6 +188,10 @@ struct pulse_device : public audio_device
 //		printf("mic %p\n", desc.microphone);
 
 		const size_t sample_size = desc.microphone->num_channels * sizeof(int16_t);
+						for(int i = 0; i < 109; i++);
+						{
+							auto packet = mic_buffer.pop();
+						}
 		while (1)//not quit)
 		{
 		try
@@ -208,6 +213,10 @@ struct pulse_device : public audio_device
 					{
 						sleep(1);
 						mic_pipe = open("/run/user/1000/wivrn-source", O_WRONLY | O_NONBLOCK);
+						for(int i = 0; i < 10000; i++);
+						{
+							auto packet = mic_buffer.pop();
+						}
 					}
 				}
 					//throw std::runtime_error("Error on mic pipe");
@@ -229,6 +238,7 @@ struct pulse_device : public audio_device
 		catch (const std::exception & e)
 		{
 			U_LOG_E("Error in audio thread: %s", e.what());
+			sleep(3);
 		}
 		}
 	}

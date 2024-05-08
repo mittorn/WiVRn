@@ -451,6 +451,7 @@ static VkResult comp_wivrn_acquire(struct comp_target * ct, uint32_t * out_index
 
 	return res;
 }
+static bool sleep_stream;
 
 static void * comp_wivrn_present_thread(void * void_param)
 {
@@ -507,7 +508,10 @@ static void * comp_wivrn_present_thread(void * void_param)
 			for (auto & encoder: param->encoders)
 			{
 //				uint64_t time_begin = os_monotonic_get_ns();
-				encoder->Encode(*cn->cnx, psc_image.view_info, psc_image.frame_index, presenting_index);
+				if(sleep_stream)
+					usleep(100000);
+				else
+					encoder->Encode(*cn->cnx, psc_image.view_info, psc_image.frame_index, presenting_index);
 //				uint64_t time_end = os_monotonic_get_ns();
 //				printf("encode time %d\n", (int)(time_end - time_begin));
 				
@@ -725,6 +729,16 @@ static void comp_wivrn_info_gpu(struct comp_target * ct, int64_t frame_id, uint6
 	struct wivrn_comp_target * cn = (struct wivrn_comp_target *)ct;
 
 	u_pc_info_gpu(cn->upc, frame_id, gpu_start_ns, gpu_end_ns, when_ns);
+}
+
+void wivrn_comp_target::request_sync(int s)
+{
+	sleep_stream = !s;
+	if(s)
+	{
+		for(auto &encoder: encoders)
+			encoder->SyncNeeded();
+	}
 }
 
 void wivrn_comp_target::on_feedback(const from_headset::feedback & feedback, const clock_offset & o)
