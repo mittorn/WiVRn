@@ -188,7 +188,7 @@ struct pulse_device : public audio_device
 //		printf("mic %p\n", desc.microphone);
 
 		const size_t sample_size = desc.microphone->num_channels * sizeof(int16_t);
-						for(int i = 0; i < 109; i++);
+						for(int i = 0; i < 40000; i++);
 						{
 							auto packet = mic_buffer.pop();
 						}
@@ -213,7 +213,7 @@ struct pulse_device : public audio_device
 					{
 						sleep(1);
 						mic_pipe = open("/run/user/1000/wivrn-source", O_WRONLY | O_NONBLOCK);
-						for(int i = 0; i < 10000; i++);
+						for(int i = 0; i < 40000; i++);
 						{
 							auto packet = mic_buffer.pop();
 						}
