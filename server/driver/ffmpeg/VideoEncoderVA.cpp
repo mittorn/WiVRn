@@ -66,7 +66,7 @@ void set_hwframe_ctx(AVCodecContext * ctx, AVBufferRef * hw_device_ctx)
 	}
 	auto frames_ctx = (AVHWFramesContext *)(hw_frames_ref->data);
 	frames_ctx->format = AV_PIX_FMT_VAAPI;
-	frames_ctx->sw_format = AV_PIX_FMT_NV12;
+	frames_ctx->sw_format = AV_PIX_FMT_P010;
 	frames_ctx->width = ctx->width;
 	frames_ctx->height = ctx->height;
 	frames_ctx->initial_pool_size = 3;
@@ -161,7 +161,7 @@ VideoEncoderVA::VideoEncoderVA(vk_bundle * vk, const xrt::drivers::wivrn::encode
 			encoder_ctx->profile = FF_PROFILE_H264_MAIN;
 			break;
 		case Codec::h265:
-			encoder_ctx->profile = FF_PROFILE_HEVC_MAIN;
+			encoder_ctx->profile = FF_PROFILE_HEVC_MAIN_10;
 			break;
 	}
 
@@ -352,7 +352,7 @@ void VideoEncoderVA::InitFilterGraph()
 	inputs->pad_idx = 0;
 	inputs->next = NULL;
 
-	std::string scale_param = "scale_vaapi=format=nv12:w=" + std::to_string(encoder_ctx->width) +
+	std::string scale_param = "scale_vaapi=format=p010:w=" + std::to_string(encoder_ctx->width) +
 	                          ":h=" + std::to_string(encoder_ctx->height);
 	err = avfilter_graph_parse_ptr(filter_graph.get(), scale_param.c_str(), &inputs, &outputs, NULL);
 	avfilter_inout_free(&outputs);
