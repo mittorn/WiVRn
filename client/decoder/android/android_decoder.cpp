@@ -83,7 +83,7 @@ struct wivrn::android::decoder::pipeline_context
 			vk::SamplerYcbcrConversionCreateInfo{
 				.format = vk::Format::eUndefined,
 				.ycbcrModel = ahb_format.suggestedYcbcrModel,
-				.ycbcrRange = ahb_format.suggestedYcbcrRange,
+				.ycbcrRange = vk::SamplerYcbcrRange(VK_SAMPLER_YCBCR_RANGE_ITU_FULL), //ahb_format.suggestedYcbcrRange,
 				.components = ahb_format.samplerYcbcrConversionComponents,
 				.xChromaOffset = ahb_format.suggestedXChromaOffset,
 				.yChromaOffset = ahb_format.suggestedYChromaOffset,

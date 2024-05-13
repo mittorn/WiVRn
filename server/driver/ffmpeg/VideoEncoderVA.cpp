@@ -352,7 +352,7 @@ void VideoEncoderVA::InitFilterGraph()
 	inputs->pad_idx = 0;
 	inputs->next = NULL;
 
-	std::string scale_param = "scale_vaapi=format=p010:w=" + std::to_string(encoder_ctx->width) +
+	std::string scale_param = "scale_vaapi=format=p010:out_range=full:w=" + std::to_string(encoder_ctx->width) +
 	                          ":h=" + std::to_string(encoder_ctx->height);
 	err = avfilter_graph_parse_ptr(filter_graph.get(), scale_param.c_str(), &inputs, &outputs, NULL);
 	avfilter_inout_free(&outputs);
