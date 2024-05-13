@@ -268,9 +268,16 @@ void wivrn_session::run(std::weak_ptr<wivrn_session> weak_self)
 				}
 				catch(const std::exception & e)
 				{
-					//self->connection.~wivrn_connection();
 					self->comp_target->request_sync(0);
-					new(&self->connection) wivrn_connection(std::move(AcceptConnection()));
+//					close(self->connection.stream.get_fd());
+//					self->connection.stream = -1;
+//					close(self->connection.control.get_fd());
+//					self->connection.control = -1;
+					//self->connection.~wivrn_connection();
+					//memset(&self->connection, 0, sizeof(self->connection));
+					
+					//new(&self->connection) wivrn_connection(std::move(AcceptConnection()));
+					self->connection.replace(std::move(AcceptConnection()));
 					sleep(2);
 					continue;
 				}

@@ -68,6 +68,12 @@ xrt::drivers::wivrn::UDP::UDP()
 		throw std::system_error{errno, std::generic_category()};
 }
 
+void xrt::drivers::wivrn::UDP::reopen()
+{
+	::close(fd);
+	fd = socket(AF_INET6, SOCK_DGRAM, 0);
+}
+
 void xrt::drivers::wivrn::UDP::bind(int port)
 {
 	sockaddr_in6 bind_addr{};

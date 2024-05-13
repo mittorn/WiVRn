@@ -101,6 +101,7 @@ public:
 	void set_receive_buffer_size(int size);
 	void set_send_buffer_size(int size);
 	void set_tos(int type_of_service);
+	void reopen();
 };
 
 class TCP : public fd_base

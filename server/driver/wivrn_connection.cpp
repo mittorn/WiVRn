@@ -24,8 +24,18 @@
 
 using namespace std::chrono_literals;
 
-wivrn_connection::wivrn_connection(TCP && tcp) :
-        control(std::move(tcp))
+void wivrn_connection::replace(TCP && tcp)
+{
+	//close(control.get_fd());
+	//close(stream.get_fd());
+//	control = -1;
+	//stream = -1;
+	stream.reopen();
+	control = std::move(tcp);
+	initialize();
+}
+
+void wivrn_connection::initialize()
 {
 	sockaddr_in6 server_address;
 	socklen_t len = sizeof(server_address);
@@ -44,6 +54,7 @@ wivrn_connection::wivrn_connection(TCP && tcp) :
 
 	// Wait for client to send handshake on UDP
 	auto timeout = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+
 
 	stream.bind(port);
 
@@ -96,6 +107,12 @@ wivrn_connection::wivrn_connection(TCP && tcp) :
 	{
 		U_LOG_I("Failed to set IP ToS to Expedited Forwarding: %s", e.what());
 	}
+}
+
+wivrn_connection::wivrn_connection(TCP && tcp) :
+        control(std::move(tcp))
+{
+	initialize();
 }
 
 std::optional<from_headset::packets> wivrn_connection::poll_control(int timeout)

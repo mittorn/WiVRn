@@ -33,6 +33,8 @@ class wivrn_connection
 
 public:
 	wivrn_connection(TCP && tcp);
+	void replace(TCP && tcp);
+	void initialize();
 	wivrn_connection(const wivrn_connection &) = delete;
 	wivrn_connection & operator=(const wivrn_connection &) = delete;
 
