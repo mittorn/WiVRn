@@ -31,8 +31,6 @@
 
 struct stream_reprojection::uniform
 {
-	alignas(16) glm::mat4 reprojection;
-
 	// Foveation parameters
 	alignas(8) glm::vec2 a;
 	alignas(8) glm::vec2 b;
@@ -367,11 +365,11 @@ void stream_reprojection::reproject(vk::raii::CommandBuffer& command_buffer, int
 		{ 0,           0,           -2*zn, 0 }
 	};
 
-	glm::mat4 hmd_unview = glm::mat4_cast(glm::quat(
+/*	glm::mat4 hmd_unview = glm::mat4_cast(glm::quat(
 		dest_pose.w,
 		dest_pose.x,
 		dest_pose.y,
-		dest_pose.z));
+		dest_pose.z));*/
 
 	r = tan(source_fov.angleRight);
 	l = tan(source_fov.angleLeft);
@@ -385,14 +383,14 @@ void stream_reprojection::reproject(vk::raii::CommandBuffer& command_buffer, int
 		{ 0,           0,           -2*zn, 0 }
 	};
 
-	glm::mat4 video_view = glm::mat4_cast(glm::quat(
+	/*glm::mat4 video_view = glm::mat4_cast(glm::quat(
 		-source_pose.w,
 		source_pose.x,
 		source_pose.y,
-		source_pose.z));
+		source_pose.z));*/
 	// clang-format on
 
-	ubo[source]->reprojection = video_proj * video_view * hmd_unview * glm::inverse(hmd_proj);
+//	ubo[source]->reprojection = video_proj * video_view * hmd_unview * glm::inverse(hmd_proj);
 
 	ubo[source]->a.x = foveation_parameters[source].x.a;
 	ubo[source]->b.x = foveation_parameters[source].x.b;

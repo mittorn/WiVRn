@@ -28,12 +28,6 @@ vec2 positions[3] = vec2[](
 
 layout(location = 0) out vec2 outUV;
 
-layout(set = 0, binding = 1) uniform UniformBufferObject
-{
-	mat4 reprojection;
-}
-ubo;
-
 void main()
 {
 	outUV = positions[gl_VertexIndex];
@@ -46,8 +40,6 @@ layout(set = 0, binding = 0) uniform sampler2D texSampler;
 
 layout(set = 0, binding = 1) uniform UniformBufferObject
 {
-	mat4 reprojection;
-
 	vec2 a;
 	vec2 b;
 	vec2 lambda;
@@ -64,8 +56,7 @@ layout(location = 0) out vec4 outColor;
 
 void main()
 {
-	vec4 tmp = ubo.reprojection * vec4(inUV, 1.0, 1.0);
-	vec2 uv = vec2(tmp) / tmp.z; // between -1 and 1
+	vec2 uv = inUV;
 
 	if (use_foveation_x && use_foveation_y)
 	{
