@@ -83,6 +83,6 @@ void main()
 		}
 	}
 
-	outColor = texture(texSampler, uv * 0.5 + vec2(0.5, 0.5));
+	outColor = vec4(texture(texSampler, uv * 0.5 + vec2(0.5, 0.5)).rgb,1);
 }
 #endif
