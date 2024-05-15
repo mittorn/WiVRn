@@ -97,7 +97,7 @@ std::shared_ptr<scenes::stream> scenes::stream::create(std::unique_ptr<wivrn_ses
 	if (self->instance.has_extension(XR_FB_DISPLAY_REFRESH_RATE_EXTENSION_NAME))
 	{
 		info.available_refresh_rates = self->session.get_refresh_rates();
-		info.preferred_refresh_rate = self->session.get_current_refresh_rate();
+		info.preferred_refresh_rate = 90; //self->session.get_current_refresh_rate();
 	}
 
 	if (info.available_refresh_rates.empty())
