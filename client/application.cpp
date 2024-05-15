@@ -675,6 +675,8 @@ application::application(application_info info) :
 	{
 		server_address = data_string.substr(strlen("wivrn://"));
 	}
+	else
+		server_address = "192.168.1.2";
 
 	app_info.native_app->userData = this;
 	app_info.native_app->onAppCmd = [](android_app * app, int32_t cmd) {
