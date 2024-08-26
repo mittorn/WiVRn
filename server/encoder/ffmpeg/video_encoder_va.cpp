@@ -80,7 +80,11 @@ av_buffer_ptr make_hwframe_ctx(AVBufferRef * hw_device_ctx, AVPixelFormat hw_for
 std::optional<std::filesystem::path>
 get_render_device(vk::raii::PhysicalDevice & physical_device)
 {
-	auto [props, drm_props] = physical_device.getProperties2<vk::PhysicalDeviceProperties2, vk::PhysicalDeviceDrmPropertiesEXT>();
+#if 0
+	//auto [props, drm_props] = physical_device.getProperties2<vk::PhysicalDeviceProperties2, vk::PhysicalDeviceDrmPropertiesEXT>();
+	//auto a = physical_device.getProperties2<vk::PhysicalDeviceProperties2, vk::PhysicalDeviceDrmPropertiesEXT>();
+	auto props = physical_device.getProperties2<vk::PhysicalDeviceProperties2>();
+	auto drm_props = physical_device.getProperties2<vk::PhysicalDeviceDrmPropertiesEXT>();
 
 	if (!drm_props.hasRender)
 	{
@@ -93,7 +97,8 @@ get_render_device(vk::raii::PhysicalDevice & physical_device)
 		U_LOG_W("DRI device %s does not exist, reverting to default", path.c_str());
 		return std::nullopt;
 	}
-	return path;
+#endif
+	return "/dev/dri/renderD128";
 }
 
 av_buffer_ptr make_drm_hw_ctx(vk::raii::PhysicalDevice & physical_device, const std::optional<std::string> & device)
@@ -182,11 +187,14 @@ video_encoder_va::video_encoder_va(wivrn_vk_bundle & vk, xrt::drivers::wivrn::en
 
 	AVDictionary * opts = nullptr;
 	av_dict_set(&opts, "async_depth", "1", 0);
+	av_dict_set(&opts, "idr_interval", "2147483647", 0);
+
 	switch (settings.codec)
 	{
 		case Codec::h264:
 			encoder_ctx->profile = FF_PROFILE_H264_CONSTRAINED_BASELINE;
 			av_dict_set(&opts, "coder", "cavlc", 0);
+//			av_dict_set(&opts, "qp", "30", 0);
 			av_dict_set(&opts, "rc_mode", "CBR", 0);
 			break;
 		case Codec::h265:
@@ -215,6 +223,10 @@ video_encoder_va::video_encoder_va(wivrn_vk_bundle & vk, xrt::drivers::wivrn::en
 	encoder_ctx->bit_rate = settings.bitrate;
 	encoder_ctx->gop_size = std::numeric_limits<decltype(encoder_ctx->gop_size)>::max();
 	encoder_ctx->hw_frames_ctx = av_buffer_ref(vaapi_frame_ctx.get());
+	encoder_ctx->compression_level = 1U | (2U << 1) | (1U << 4);
+	encoder_ctx->rc_buffer_size = encoder_ctx->bit_rate / 90.0 * 1.1;
+	encoder_ctx->rc_max_rate = encoder_ctx->bit_rate;
+	encoder_ctx->rc_initial_buffer_occupancy = encoder_ctx->rc_buffer_size / 4 * 3;
 
 	err = avcodec_open2(encoder_ctx.get(), codec, &opts);
 	av_dict_free(&opts);
