@@ -19,7 +19,6 @@
 
 #include "accept_connection.h"
 
-#include "avahi_publisher.h"
 #include "driver/configuration.h"
 #include "hostname.h"
 #include "version.h"
@@ -29,11 +28,6 @@
 #include <map>
 #include <string>
 
-static void avahi_set_bool_callback(AvahiWatch * w, int fd, AvahiWatchEvent event, void * userdata)
-{
-	bool * flag = (bool *)userdata;
-	*flag = true;
-}
 
 std::unique_ptr<xrt::drivers::wivrn::TCP> accept_connection(int watch_fd, std::function<bool()> quit)
 {
@@ -46,25 +40,16 @@ std::unique_ptr<xrt::drivers::wivrn::TCP> accept_connection(int watch_fd, std::f
 	        {"cookie", server_cookie()},
 	};
 
-	avahi_publisher publisher(hostname().c_str(), "_wivrn._tcp", xrt::drivers::wivrn::default_port, TXT);
 
 	xrt::drivers::wivrn::TCPListener listener(xrt::drivers::wivrn::default_port);
 	bool client_connected = false;
 	bool fd_triggered = false;
 
-	AvahiWatch * watch_listener = publisher.watch_new(listener.get_fd(), AVAHI_WATCH_IN, &avahi_set_bool_callback, &client_connected);
-	AvahiWatch * watch_user = publisher.watch_new(watch_fd, AVAHI_WATCH_IN, &avahi_set_bool_callback, &fd_triggered);
-
-	while (not(client_connected or fd_triggered or (quit and quit())))
+//	while (not(client_connected or fd_triggered or (quit and quit())))
 	{
-		if (not publisher.iterate(quit ? 100 : -1))
-			break;
 	}
 
-	publisher.watch_free(watch_listener);
-	publisher.watch_free(watch_user);
-
-	if (client_connected)
+//	if (client_connected)
 		return std::make_unique<xrt::drivers::wivrn::TCP>(listener.accept().first);
 
 	return nullptr;

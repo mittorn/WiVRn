@@ -140,7 +140,7 @@ int inner_main(int argc, char * argv[], bool use_systemd)
 #endif
 
 	u_trace_marker_init();
-
+#if 0
 	sigset_t sigint_mask;
 	sigemptyset(&sigint_mask);
 	sigaddset(&sigint_mask, SIGINT);
@@ -158,7 +158,7 @@ int inner_main(int argc, char * argv[], bool use_systemd)
 	}
 	fcntl(pipe_fds[0], F_SETFD, FD_CLOEXEC);
 	fcntl(pipe_fds[1], F_SETFD, FD_CLOEXEC);
-
+#endif
 	char protocol_string[17];
 	sprintf(protocol_string, "%016lx", xrt::drivers::wivrn::protocol_version);
 
@@ -172,7 +172,7 @@ int inner_main(int argc, char * argv[], bool use_systemd)
 	{
 		try
 		{
-			tcp = accept_connection(sigint_fd);
+			tcp = accept_connection(-1);//sigint_fd);
 			if (tcp)
 				init_cleanup_functions();
 			else
@@ -186,13 +186,15 @@ int inner_main(int argc, char * argv[], bool use_systemd)
 
 		active_runtime runtime_setter;
 
+#if 0
 #ifdef WIVRN_USE_SYSTEMD
 		pid_t client_pid = use_systemd ? start_unit_file() : fork_application();
 #else
 		pid_t client_pid = fork_application();
 #endif
-
-		pid_t server_pid = fork();
+#endif
+		pid_t client_pid = -1;
+		pid_t server_pid = 0; //fork();
 
 		if (server_pid < 0)
 		{
@@ -202,6 +204,7 @@ int inner_main(int argc, char * argv[], bool use_systemd)
 		if (server_pid == 0)
 		{
 			// Unmask SIGTERM, keep SIGINT masked
+#if 0
 			sigset_t sigint_mask;
 			sigemptyset(&sigint_mask);
 			sigaddset(&sigint_mask, SIGTERM);
@@ -212,6 +215,7 @@ int inner_main(int argc, char * argv[], bool use_systemd)
 			dup2(pipe_fds[0], 0);
 			close(pipe_fds[0]);
 			close(pipe_fds[1]);
+#endif
 
 			setenv("LISTEN_PID", std::to_string(getpid()).c_str(), true);
 
@@ -242,7 +246,7 @@ int inner_main(int argc, char * argv[], bool use_systemd)
 
 			int server_fd = pidfd_open(server_pid, 0);
 			int client_fd = client_pid > 0 ? pidfd_open(client_pid, 0) : -1;
-
+#if 0
 			pollfd fds[3]{};
 			fds[0].fd = sigint_fd;
 			fds[0].events = POLLIN;
@@ -250,14 +254,14 @@ int inner_main(int argc, char * argv[], bool use_systemd)
 			fds[1].events = POLLIN;
 			fds[2].fd = client_fd;
 			fds[2].events = POLLIN;
-
+#endif
 			bool server_running = true;
-			bool client_running = client_pid > 0;
+			bool client_running = false;//client_pid > 0;
 
 			while (!quit && server_running)
 			{
+#if 0
 				poll(fds, std::size(fds), -1);
-
 				if (fds[0].revents & POLLIN)
 				{
 					// SIGINT/SIGTERM received
@@ -269,7 +273,7 @@ int inner_main(int argc, char * argv[], bool use_systemd)
 					// Server exited
 					waitpid_verbose(server_pid, "Server");
 
-					server_running = false;
+			//		server_running = false;
 					fds[1].fd = -1;
 				}
 
@@ -281,26 +285,28 @@ int inner_main(int argc, char * argv[], bool use_systemd)
 					client_running = false;
 					fds[2].fd = -1;
 				}
+#endif
 			}
 
 			// Quit the server and the client
 
-			if (client_running)
-				kill(-client_pid, SIGTERM);
+//			if (client_running)
+//				kill(-client_pid, SIGTERM);
 
 			if (server_running)
 			{
 				// FIXME: server doesn't listen on stdin when used in socket activation mode
 				// Write to the server's stdin to make it quit
 				char buffer[] = "\n";
-				(void)write(pipe_fds[1], &buffer, strlen(buffer));
+//				(void)write(pipe_fds[1], &buffer, strlen(buffer));
 			}
 
 			// Wait until both the server and the client exit
 			auto now = std::chrono::steady_clock::now();
 			while (server_running or client_running)
 			{
-				poll(fds, std::size(fds), 100);
+#if 0
+//				poll(fds, std::size(fds), 100);
 
 				if (fds[1].revents & POLLIN)
 				{
@@ -334,11 +340,12 @@ int inner_main(int argc, char * argv[], bool use_systemd)
 						kill(-client_pid, SIGKILL);
 					}
 				}
+#endif
 			}
 
-			close(server_fd);
-			if (client_fd > 0)
-				close(client_fd);
+//			close(server_fd);
+//			if (client_fd > 0)
+//				close(client_fd);
 
 			run_cleanup_functions();
 		}
