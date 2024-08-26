@@ -153,6 +153,7 @@ std::shared_ptr<scenes::stream> scenes::stream::create(std::unique_ptr<wivrn_ses
 
 		if (it == device_ids.end())
 			continue;
+		spdlog::warn("Action {} {}", (uintptr_t)action, name);
 
 		self->input_actions.emplace_back(it->second, action, action_type);
 	}
@@ -310,7 +311,10 @@ std::vector<std::shared_ptr<shard_accumulator::blit_handle>> scenes::stream::com
 		}
 	}
 	std::optional<uint64_t> frame_index;
+	static uint64_t last_frame_index;
+
 	if (not common_frames.empty())
+#if 1
 	{
 		auto min = std::ranges::min_element(common_frames,
 		                                    std::ranges::less{},
@@ -323,6 +327,22 @@ std::vector<std::shared_ptr<shard_accumulator::blit_handle>> scenes::stream::com
 		assert(*min);
 		frame_index = (*min)->feedback.frame_index;
 	}
+#else
+	{
+	for (auto it = common_frames.begin(); it != common_frames.end(); ++it)
+		if((*it)->feedback.frame_index == last_frame_index + 1)
+			frame_index = ++last_frame_index;
+
+	// too slow? keep on current frame
+	for (auto it = common_frames.begin(); it != common_frames.end(); ++it)
+		if((*it)->feedback.frame_index == last_frame_index)
+			frame_index = last_frame_index;
+	
+	if(!frame_index)
+		frame_index = (*(common_frames.end() - 1))->feedback.frame_index;
+	last_frame_index = *frame_index;
+	}
+#endif
 	std::vector<std::shared_ptr<shard_accumulator::blit_handle>> result;
 	result.reserve(decoders.size());
 	for (const auto & decoder: decoders)
@@ -897,8 +917,8 @@ void scenes::stream::setup_reprojection_swapchain()
 	for (auto view: views)
 	{
 		XrExtent2Di extent{
-		        .width = std::min<int32_t>(view.maxImageRectWidth, swapchain_width),
-		        .height = std::min<int32_t>(view.maxImageRectHeight, swapchain_height),
+		        .width = 3120,
+		        .height = 3120,
 		};
 		swapchains.emplace_back(session, device, swapchain_format, extent.width, extent.height);
 

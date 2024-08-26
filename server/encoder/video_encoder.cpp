@@ -119,6 +119,7 @@ void VideoEncoder::Encode(wivrn_session & cnx,
 	}
 	if (idr)
 		last_idr_frame = frame_index;
+//	idr = false;
 	const char * extra = idr ? ",idr" : ",p";
 	clock = cnx.get_offset();
 	timing_info.encode_begin = clock.to_headset(os_monotonic_get_ns());
