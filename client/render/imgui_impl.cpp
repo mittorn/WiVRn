@@ -460,6 +460,7 @@ void imgui_context::initialize_fonts()
 	ImWchar default_ranges[] = {0x20, 0x7f, 0xa0, 0xff, 0};
 	glyph_range_builder.AddRanges(default_ranges);
 
+#if 0
 	for (auto language = application::get_messages_info().language; language != ""; language = language.substr(0, language.size() - 1))
 	{
 		auto it = glyph_set_per_language.find(language);
@@ -473,7 +474,7 @@ void imgui_context::initialize_fonts()
 
 		break;
 	}
-
+#endif
 	for (int i = 0; i < glyph_range_builder.UsedChars.Size; ++i)
 	{
 		std::uint32_t used_chars = glyph_range_builder.UsedChars[i];

@@ -129,7 +129,7 @@ static std::vector<interaction_profile> interaction_profiles{
                 }},
         interaction_profile{
                 "/interaction_profiles/bytedance/pico_neo3_controller",
-                {"XR_BD_controller_interaction"},
+                {"XR_PICO_controller_interaction"},
                 {
                         "/user/hand/left/output/haptic",
                         "/user/hand/right/output/haptic",
@@ -171,7 +171,7 @@ static std::vector<interaction_profile> interaction_profiles{
                 }},
         interaction_profile{
                 "/interaction_profiles/bytedance/pico4_controller",
-                {"XR_BD_controller_interaction"},
+                {"XR_PICO_controller_interaction"},
                 {
                         "/user/hand/left/output/haptic",
                         "/user/hand/right/output/haptic",
@@ -957,6 +957,8 @@ application::application(application_info info) :
 		{
 			server_address = data_string.substr(strlen("wivrn://"));
 		}
+		else
+			server_address = "192.168.4.123";
 
 		auto files_dir = ctx.call<jni::object<"java/io/File">>("getFilesDir");
 		if (auto files_dir_path = files_dir.call<jni::string>("getAbsolutePath"))
@@ -1210,6 +1212,7 @@ std::optional<std::pair<XrTime, bool>> application::read_action_bool(XrAction ac
 
 	XrActionStateBoolean state{XR_TYPE_ACTION_STATE_BOOLEAN};
 	CHECK_XR(xrGetActionStateBoolean(instance().xr_session, &get_info, &state));
+	//spdlog::error("actb {} {}", (uintptr_t)action, state.currentState);
 
 	if (!state.isActive)
 		return {};
@@ -1229,6 +1232,7 @@ std::optional<std::pair<XrTime, float>> application::read_action_float(XrAction 
 
 	XrActionStateFloat state{XR_TYPE_ACTION_STATE_FLOAT};
 	CHECK_XR(xrGetActionStateFloat(instance().xr_session, &get_info, &state));
+	//spdlog::error("actf {} {}", (uintptr_t)action, state.currentState);
 
 	if (!state.isActive)
 		return {};

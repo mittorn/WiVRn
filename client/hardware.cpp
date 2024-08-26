@@ -121,7 +121,7 @@ XrViewConfigurationView override_view(XrViewConfigurationView view, model m)
 		case model::pico_neo_3:
 			return scale_view(view, 1832);
 		case model::pico_4:
-			return scale_view(view, 2160);
+			return scale_view(view, 3120);
 		case model::htc_vive_focus_3:
 			return scale_view(view, 2448);
 		case model::htc_vive_xr_elite:

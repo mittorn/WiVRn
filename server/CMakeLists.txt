@@ -60,7 +60,6 @@ FetchContent_MakeAvailable(monado)
 add_executable(wivrn-server
 		accept_connection.cpp
 		active_runtime.cpp
-		avahi_publisher.cpp
 		hostname.cpp
 		main.cpp
 		start_application.cpp
@@ -157,7 +156,6 @@ target_link_libraries(
 		xrt-external-openxr
 		xrt-interfaces
 
-		PkgConfig::AVAHI
 		Eigen3::Eigen
 		wivrn-common
 		wivrn-external

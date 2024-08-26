@@ -27,18 +27,20 @@ if(ANDROID)
     find_library(AAUDIO_LIBRARY NAMES aaudio REQUIRED)
     target_link_libraries(wivrn ${ANDROID_LIBRARY} ${MEDIA_LIBRARY} ${AAUDIO_LIBRARY})
 
-    set(DYNAMIC_LOADER OFF)
+    set(DYNAMIC_LOADER ON)
     FetchContent_MakeAvailable(openxr_loader)
     target_link_libraries(wivrn openxr_loader)
+#    target_include_directories()
 
 
-    target_link_libraries(wivrn native_app_glue)
+    target_link_libraries(wivrn)
     target_compile_definitions(wivrn PRIVATE -DXR_USE_PLATFORM_ANDROID -DVK_USE_PLATFORM_ANDROID_KHR)
     target_link_options(wivrn PRIVATE -Wl,--undefined=ANativeActivity_onCreate)
 
     file(GLOB PLATFORM_SOURCE CONFIGURE_DEPENDS
         "audio/android/*.cpp"
         "decoder/android/*.cpp"
+        "android_native_app_glue.c"
         )
     target_sources(wivrn PRIVATE ${PLATFORM_SOURCE})
 else()
@@ -157,39 +159,9 @@ endif()
 
 find_program(GETTEXT_MSGFMT_COMMAND msgfmt REQUIRED)
 
-set(MO_FILES)
-set(PO_FILES)
-file(GLOB PO_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/locale/*")
-foreach(PO_DIR IN LISTS PO_DIRS)
-    cmake_path(GET PO_DIR FILENAME LANG)
-
-    if(ANDROID)
-        set(MO_DIR  ${CMAKE_ANDROID_ASSETS_DIRECTORIES}/locale/${LANG}/LC_MESSAGES)
-    else()
-        set(MO_DIR  ${CMAKE_CURRENT_BINARY_DIR}/locale/${LANG}/LC_MESSAGES)
-    endif()
-
-    set(MO_FILE ${MO_DIR}/wivrn.mo)
-    set(PO_FILE ${PO_DIR}/wivrn.po)
-
-    add_custom_command(OUTPUT ${MO_FILE}
-        COMMAND ${CMAKE_COMMAND} -E make_directory ${MO_DIR}
-        COMMAND ${GETTEXT_MSGFMT_COMMAND} ${PO_FILE} -o ${MO_FILE}
-        DEPENDS ${PO_FILE})
-
-    set(MO_FILES ${MO_FILES} ${MO_FILE})
-    set(PO_FILES ${PO_FILES} ${PO_FILE})
-
-    install(FILES ${MO_FILE} DESTINATION ${CMAKE_INSTALL_DATADIR}/locale/${LANG}/LC_MESSAGES)
-endforeach()
-
-add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/glyph_set.cpp
-    COMMAND python ${CMAKE_CURRENT_SOURCE_DIR}/../tools/extract_charset.py ${PO_FILES} > ${CMAKE_CURRENT_BINARY_DIR}/glyph_set.cpp
-    DEPENDS ${PO_FILES})
-
-add_custom_target(translations ALL DEPENDS ${MO_FILES} ${CMAKE_CURRENT_BINARY_DIR}/glyph_set.cpp)
-add_dependencies(wivrn translations)
-target_sources(wivrn PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/glyph_set.cpp)
+#add_custom_target(translations ALL DEPENDS ${MO_FILES} ${CMAKE_CURRENT_BINARY_DIR}/glyph_set.cpp)
+#add_dependencies(wivrn)
+#target_sources(wivrn PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/glyph_set.cpp)
 
 if(ANDROID)
     set(LICENSES_DIR "${CMAKE_ANDROID_ASSETS_DIRECTORIES}/licenses")
@@ -197,12 +169,12 @@ else()
     set(LICENSES_DIR "licenses")
 endif()
 
-file(MAKE_DIRECTORY "${LICENSES_DIR}")
-file(COPY_FILE "${CMAKE_SOURCE_DIR}/COPYING" "${LICENSES_DIR}/WiVRn")
-file(COPY_FILE "${simdjson_SOURCE_DIR}/LICENSE" "${LICENSES_DIR}/simdjson")
-if (OPENXR_SOURCE_DIR)
-    file(COPY_FILE "${OPENXR_SOURCE_DIR}/LICENSE" "${LICENSES_DIR}/openxr-loader")
-endif()
+#file(MAKE_DIRECTORY "${LICENSES_DIR}")
+#file(COPY_FILE "${CMAKE_SOURCE_DIR}/COPYING" "${LICENSES_DIR}/WiVRn")
+#file(COPY_FILE "${simdjson_SOURCE_DIR}/LICENSE" "${LICENSES_DIR}/simdjson")
+#if (OPENXR_SOURCE_DIR)
+#    file(COPY_FILE "${OPENXR_SOURCE_DIR}/LICENSE" "${LICENSES_DIR}/openxr-loader")
+#endif()
 
 install(DIRECTORY "${LICENSES_DIR}" DESTINATION "${CMAKE_INSTALL_DATADIR}/wivrn")
 
