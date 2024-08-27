@@ -66,7 +66,7 @@ void set_hwframe_ctx(AVCodecContext * ctx, AVBufferRef * hw_device_ctx)
 	}
 	auto frames_ctx = (AVHWFramesContext *)(hw_frames_ref->data);
 	frames_ctx->format = AV_PIX_FMT_VAAPI;
-	frames_ctx->sw_format = AV_PIX_FMT_P010;
+	frames_ctx->sw_format = AV_PIX_FMT_NV12;
 	frames_ctx->width = ctx->width;
 	frames_ctx->height = ctx->height;
 	frames_ctx->initial_pool_size = 3;
@@ -150,7 +150,6 @@ VideoEncoderVA::VideoEncoderVA(vk_bundle * vk, const xrt::drivers::wivrn::encode
 	av_opt_set(encoder_ctx->priv_data, "rc_mode", "CBR", 0);
 	av_opt_set_int(encoder_ctx->priv_data, "idr_interval", INT_MAX, 0);
 	av_opt_set_int(encoder_ctx->priv_data, "async_depth", 1, 0);
-
 	for (auto option: settings.options)
 	{
 		av_dict_set(&opts, option.first.c_str(), option.second.c_str(), 0);
@@ -158,10 +157,15 @@ VideoEncoderVA::VideoEncoderVA(vk_bundle * vk, const xrt::drivers::wivrn::encode
 	switch (this->codec)
 	{
 		case Codec::h264:
-			encoder_ctx->profile = FF_PROFILE_H264_MAIN;
+			encoder_ctx->profile = FF_PROFILE_H264_MAIN;//CONSTRAINED_BASELINE;
+			av_dict_set(&opts, "coder", "cavlc", 0);
 			break;
 		case Codec::h265:
-			encoder_ctx->profile = FF_PROFILE_HEVC_MAIN_10;
+			encoder_ctx->profile = FF_PROFILE_HEVC_MAIN;
+			encoder_ctx->compression_level = 1U | (2U << 1) | (1U << 4);
+			encoder_ctx->rc_buffer_size = encoder_ctx->bit_rate / 90.0 * 1.1;
+			encoder_ctx->rc_max_rate = encoder_ctx->bit_rate;
+			encoder_ctx->rc_initial_buffer_occupancy = encoder_ctx->rc_buffer_size / 4 * 3;
 			break;
 	}
 
@@ -175,10 +179,11 @@ VideoEncoderVA::VideoEncoderVA(vk_bundle * vk, const xrt::drivers::wivrn::encode
 	encoder_ctx->max_b_frames = 0;
 	encoder_ctx->bit_rate = settings.bitrate;
 	encoder_ctx->gop_size = 32767;//std::numeric_limits<decltype(encoder_ctx->gop_size)>::max();
-	encoder_ctx->compression_level = 1U | (2U << 1) | (1U << 4);
-	encoder_ctx->rc_buffer_size = encoder_ctx->bit_rate / 90.0 * 1.1;
-	encoder_ctx->rc_max_rate = encoder_ctx->bit_rate;
-	encoder_ctx->rc_initial_buffer_occupancy = encoder_ctx->rc_buffer_size / 4 * 3;
+	encoder_ctx->color_range = AVCOL_RANGE_JPEG;
+	encoder_ctx->colorspace = AVCOL_SPC_BT709;
+	encoder_ctx->color_trc = AVCOL_TRC_BT709;
+	encoder_ctx->color_primaries = AVCOL_PRI_BT709;
+
 
 	set_hwframe_ctx(encoder_ctx.get(), hw_ctx_vaapi.get());
 
@@ -302,6 +307,11 @@ void VideoEncoderVA::SetImages(
 		err = av_hwframe_map(va_frame.get(), drm_frame.get(), AV_HWFRAME_MAP_DIRECT);
 		if (err)
 			throw std::system_error(err, av_error_category(), "Failed to map DRM frame to VAAPI frame");
+		va_frame->color_range = AVCOL_RANGE_JPEG;
+		va_frame->colorspace = AVCOL_SPC_BT709;
+		va_frame->color_primaries = AVCOL_PRI_BT709;
+		va_frame->color_trc = AVCOL_TRC_BT709;
+
 		va_frame->crop_left = offset_x;
 		va_frame->crop_right = width - this->width - offset_x;
 		va_frame->crop_top = offset_y;
@@ -352,7 +362,7 @@ void VideoEncoderVA::InitFilterGraph()
 	inputs->pad_idx = 0;
 	inputs->next = NULL;
 
-	std::string scale_param = "scale_vaapi=format=p010:out_range=full:w=" + std::to_string(encoder_ctx->width) +
+	std::string scale_param = "scale_vaapi=format=nv12:out_range=full:w=" + std::to_string(encoder_ctx->width) +
 	                          ":h=" + std::to_string(encoder_ctx->height);
 	err = avfilter_graph_parse_ptr(filter_graph.get(), scale_param.c_str(), &inputs, &outputs, NULL);
 	avfilter_inout_free(&outputs);
