@@ -379,7 +379,10 @@ static void comp_wivrn_present_thread(std::stop_token stop_token, wivrn_comp_tar
 		{
 			for (auto & encoder: encoders)
 			{
+				uint64_t time_begin = os_monotonic_get_ns();
 				encoder->Encode(*cn->cnx, cn->psc.view_info, cn->psc.frame_index);
+				uint64_t time_end = os_monotonic_get_ns();
+				printf("encode time %d\n", (int)(time_end - time_begin));
 			}
 		}
 		catch (std::exception & e)
@@ -438,7 +441,7 @@ static VkResult comp_wivrn_present(struct comp_target * ct,
 	if (cn->psc.status != 0)
 	{
 		U_LOG_W("Encoders not done with previous image, skip one");
-		skip = true;
+//		skip = true;
 	}
 
 	if (skip)
@@ -475,6 +478,9 @@ static VkResult comp_wivrn_present(struct comp_target * ct,
 		const auto & slot = cn->c->base.slot;
 		view_info.fov[eye] = xrt_cast(slot.fovs[eye]);
 		view_info.pose[eye] = xrt_cast(slot.poses[eye]);
+		if (slot.layer_count == 1 && 
+			slot.layers[0].data.type == XRT_LAYER_PROJECTION)
+			cn->c->debug.atw_off = true;
 		if (cn->c->debug.atw_off)
 		{
 			const auto & proj = slot.layers[0].data.proj;

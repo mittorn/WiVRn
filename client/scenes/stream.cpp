@@ -314,7 +314,7 @@ std::vector<std::shared_ptr<shard_accumulator::blit_handle>> scenes::stream::com
 	static uint64_t last_frame_index;
 
 	if (not common_frames.empty())
-#if 0
+#if 1
 	{
 		auto min = std::ranges::min_element(common_frames,
 		                                    std::ranges::less{},
@@ -353,9 +353,9 @@ std::vector<std::shared_ptr<shard_accumulator::blit_handle>> scenes::stream::com
 			if((*it)->feedback.frame_index == last_frame_index - 1)
 				frame_index = --last_frame_index;
 
-		for (auto it = common_frames.begin(); it != common_frames.end(); ++it)
-			if((*it)->feedback.frame_index == last_frame_index - 1)
-				frame_index = --last_frame_index;
+//		for (auto it = common_frames.begin(); it != common_frames.end(); ++it)
+//			if((*it)->feedback.frame_index == last_frame_index - 1)
+//				frame_index = --last_frame_index;
 	}
 	}
 #endif
