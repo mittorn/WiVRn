@@ -56,6 +56,8 @@ void wivrn_pacer::predict(
 	out_predicted_display_time_ns = predicted_client_render + mean_render_to_display_ns;
 	out_desired_present_time_ns = predicted_client_render - safe_present_to_decoded_ns;
 	out_wake_up_time_ns = out_desired_present_time_ns - mean_wake_up_to_present_ns;
+//	out_desired_present_time_ns = out_wake_up_time_ns + frame_duration_ns * 0.75;// + mean_wake_up_to_present_ns;
+//	out_predicted_display_time_ns = out_desired_present_time_ns + frame_duration_ns * 0.25;// + mean_present_to_display_ns;
 
 	last_ns = predicted_client_render;
 
