@@ -50,9 +50,9 @@ void wivrn_pacer::predict(
 		next_frame_ns = now;
 
 	out_wake_up_time_ns = next_frame_ns;
-	out_desired_present_time_ns = out_wake_up_time_ns + mean_wake_up_to_present_ns;
+	out_desired_present_time_ns = out_wake_up_time_ns + frame_duration_ns * 0.75;// + mean_wake_up_to_present_ns;
 	out_present_slop_ns = 0;
-	out_predicted_display_time_ns = out_desired_present_time_ns + mean_present_to_display_ns;
+	out_predicted_display_time_ns = out_desired_present_time_ns + frame_duration_ns * 0.25;// + mean_present_to_display_ns;
 }
 
 void wivrn_pacer::on_feedback(const xrt::drivers::wivrn::from_headset::feedback & feedback, const clock_offset & offset)
