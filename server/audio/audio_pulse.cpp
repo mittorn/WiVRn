@@ -1,24 +1,26 @@
 #include "audio_pulse.h"
 
 #include "../wivrn_ipc.h"
-#include "driver/wivrn_session.h"
 #include "os/os_time.h"
 #include "util/u_logging.h"
 #include "utils/sync_queue.h"
 #include "utils/wrap_lambda.h"
-
+#include "driver/wivrn_session.h"
+#if 0
 #include <pulse/context.h>
 #include <pulse/ext-device-manager.h>
 #include <pulse/introspect.h>
 #include <pulse/proplist.h>
 #include <pulse/thread-mainloop.h>
-
+#endif
 #include <atomic>
 #include <fcntl.h>
 #include <filesystem>
 #include <future>
 #include <iostream>
+#include <poll.h>
 #include <sys/poll.h>
+#include <signal.h>
 
 static const char * source_name = "WiVRn-mic";
 static const char * sink_name = "WiVRn";
@@ -32,82 +34,6 @@ struct module_entry
 	std::filesystem::path socket;
 };
 
-void wait_connected(std::atomic<pa_context_state> & state)
-{
-	while (true)
-	{
-		auto current = state.load();
-		switch (current)
-		{
-			case PA_CONTEXT_READY:
-				return;
-			case PA_CONTEXT_FAILED:
-				throw std::runtime_error("connection failed");
-			default:
-				state.wait(current);
-		}
-	}
-}
-
-void unload_module(uintptr_t id);
-
-void unload_module(pa_context * ctx, uint32_t id)
-{
-	std::promise<void> p;
-	wrap_lambda cb = [&p, id](pa_context *, int success) {
-		if (not success)
-			std::cout << "failed to unload pulseaudio module " << id
-			          << std::endl;
-		else
-			std::cout << "pulseaudio module " << id << " unloaded"
-			          << std::endl;
-		p.set_value();
-	};
-	auto op = pa_context_unload_module(ctx, id, cb, cb);
-	pa_operation_unref(op);
-	p.get_future().get();
-
-	remove_cleanup_function(unload_module, id);
-}
-
-std::optional<module_entry> get_sink(pa_context * ctx, const char * name)
-{
-	std::optional<module_entry> result;
-	std::promise<void> p;
-	wrap_lambda cb(
-	        [&result, &p](pa_context *, const pa_sink_info * i, int eol) {
-		        if (eol)
-		        {
-			        p.set_value();
-			        return;
-		        }
-		        result = {.module = i->owner_module, .device = i->index};
-	        });
-	auto op = pa_context_get_sink_info_by_name(ctx, name, cb, cb);
-	pa_operation_unref(op);
-	p.get_future().wait();
-	return result;
-}
-
-std::optional<module_entry> get_source(pa_context * ctx, const char * name)
-{
-	std::optional<module_entry> result;
-	std::promise<void> p;
-	wrap_lambda cb(
-	        [&result, &p](pa_context *, const pa_source_info * i, int eol) {
-		        if (eol)
-		        {
-			        p.set_value();
-			        return;
-		        }
-		        result = {.module = i->owner_module, .device = i->index};
-	        });
-	auto op = pa_context_get_source_info_by_name(ctx, name, cb, cb);
-	pa_operation_unref(op);
-	p.get_future().wait();
-	return result;
-}
-
 std::filesystem::path get_socket_path()
 {
 	const char * path = std::getenv("XDG_RUNTIME_DIR");
@@ -119,124 +45,23 @@ std::filesystem::path get_socket_path()
 	return path;
 }
 
-module_entry ensure_sink(pa_context * ctx, const char * name, const std::string & description, int channels, int sample_rate)
+module_entry ensure_sink(const char * name, const std::string & description, int channels, int sample_rate)
 {
-	auto sink = get_sink(ctx, name);
-	if (sink)
-		unload_module(ctx, sink->module);
-
-	std::promise<uint32_t> module_index;
-	wrap_lambda cb = [&module_index](pa_context *, uint32_t index) {
-		module_index.set_value(index);
-	};
 	std::filesystem::path fifo = get_socket_path() / sink_pipe;
-	std::stringstream params;
-	params << "sink_name=" << std::quoted(name)
-	       << " file=" << std::quoted(fifo.string())
-	       << " channels=" << channels
-	       << " rate=" << sample_rate
-	       << " use_system_clock_for_timing=yes"
-	       << " sink_properties=" << PA_PROP_DEVICE_DESCRIPTION << "=" << std::quoted(description)
-	       << PA_PROP_DEVICE_ICON_NAME << "=network-wireless";
-	;
-	auto op = pa_context_load_module(ctx, "module-pipe-sink", params.str().c_str(), cb, cb);
-	pa_operation_unref(op);
-	module_index.get_future().wait();
+	module_entry source = {0};
+	source.socket = fifo;
+	return source;
 
-	sink = get_sink(ctx, name);
-	if (not sink)
-		throw std::runtime_error("failed to create audio sink " + std::string(name));
-	sink->socket = fifo;
-
-	add_cleanup_function(unload_module, sink->module);
-
-	return *sink;
 }
 
-module_entry ensure_source(pa_context * ctx, const char * name, const std::string & description, int channels, int sample_rate)
+module_entry ensure_source( const char * name, const std::string & description, int channels, int sample_rate)
 {
-	auto source = get_source(ctx, name);
-	if (source)
-		unload_module(ctx, source->module);
-
-	std::promise<uint32_t> module_index;
-	wrap_lambda cb = [&module_index](pa_context *, uint32_t index) {
-		module_index.set_value(index);
-	};
 	std::filesystem::path fifo = get_socket_path() / source_pipe;
-	std::stringstream params;
-	params << "source_name=" << std::quoted(name)
-	       << " file=" << std::quoted(fifo.string())
-	       << " channels=" << channels
-	       << " rate=" << sample_rate
-	       << " source_properties=" << PA_PROP_DEVICE_DESCRIPTION << "=" << std::quoted(description)
-	       << PA_PROP_DEVICE_ICON_NAME << "=network-wireless";
-	;
-	auto op = pa_context_load_module(ctx, "module-pipe-source", params.str().c_str(), cb, cb);
-	pa_operation_unref(op);
-	module_index.get_future().wait();
-
-	source = get_source(ctx, name);
-	if (not source)
-		throw std::runtime_error("failed to create audio source " + std::string(name));
-	source->socket = fifo;
-
-	add_cleanup_function(unload_module, source->module);
-
-	return *source;
+	module_entry source = {0};
+	source.socket = fifo;
+	signal(SIGPIPE, SIG_IGN);
+	return source;
 }
-
-struct pa_deleter
-{
-	void operator()(pa_threaded_mainloop * loop)
-	{
-		pa_threaded_mainloop_stop(loop);
-		pa_threaded_mainloop_free(loop);
-	}
-	void operator()(pa_context * ctx)
-	{
-		pa_context_unref(ctx);
-	}
-};
-
-class pa_connection
-{
-	std::unique_ptr<pa_threaded_mainloop, pa_deleter> main_loop;
-	std::unique_ptr<pa_context, pa_deleter> ctx;
-	std::atomic<pa_context_state> context_state{PA_CONTEXT_UNCONNECTED};
-
-public:
-	pa_connection(const char * app_name)
-	{
-		main_loop.reset(pa_threaded_mainloop_new());
-		auto loop = pa_threaded_mainloop_get_api(main_loop.get());
-		ctx.reset(pa_context_new(loop, app_name));
-
-		wrap_lambda context_state_cb = [this](pa_context * c) {
-			context_state.store(pa_context_get_state(c));
-			context_state.notify_all();
-		};
-		pa_context_set_state_callback(ctx.get(), context_state_cb, context_state_cb);
-
-		int ret = pa_context_connect(ctx.get(), nullptr, PA_CONTEXT_NOAUTOSPAWN, nullptr);
-		if (ret < 0)
-			throw std::runtime_error(
-			        "failed to setup pulseaudio connection "
-			        "(pa_context_connect)");
-
-		ret = pa_threaded_mainloop_start(main_loop.get());
-		if (ret < 0)
-			throw std::runtime_error(
-			        "failed to setup pulseaudio connection "
-			        "(pa_threaded_mainloop_start)");
-		wait_connected(context_state);
-	}
-
-	operator pa_context *()
-	{
-		return ctx.get();
-	}
-};
 
 struct pulse_device : public audio_device
 {
@@ -268,11 +93,6 @@ struct pulse_device : public audio_device
 		{
 			try
 			{
-				pa_connection cnx("WiVRn");
-				if (speaker)
-					unload_module(cnx, speaker->module);
-				if (microphone)
-					unload_module(cnx, microphone->module);
 			}
 			catch (const std::exception & e)
 			{
@@ -297,7 +117,7 @@ struct pulse_device : public audio_device
 		const size_t sample_size = desc.speaker->num_channels * sizeof(int16_t);
 		// use buffers of up to 2ms
 		// read buffers must be smaller than buffer size on client or we will discard chunks often
-		const size_t buffer_size = (desc.speaker->sample_rate * sample_size * 2) / 1000;
+		const size_t buffer_size = 8192;//(desc.speaker->sample_rate * sample_size * 2) / 1000;
 		xrt::drivers::wivrn::audio_data packet;
 		std::vector<uint8_t> buffer(buffer_size, 0);
 		size_t remainder = 0;
@@ -313,48 +133,74 @@ struct pulse_device : public audio_device
 				remainder = (remainder + size) % sample_size;
 			}
 		}
+			while (not quit)
+			{
 
 		try
 		{
-			while (not quit)
-			{
 				pollfd pfd{};
 				pfd.fd = speaker_pipe.get_fd();
-				pfd.events = POLL_IN;
+				pfd.events = POLLIN;
 
 				int r = poll(&pfd, 1, 100);
 				if (r < 0)
 					throw std::system_error(errno, std::system_category());
 				if (pfd.revents & (POLLHUP | POLLERR))
-					throw std::runtime_error("Error on speaker pipe");
-				if (pfd.revents & POLLIN)
 				{
-					int size = read(pfd.fd, buffer.data() + remainder, buffer_size - remainder);
-					if (size < 0)
-						throw std::system_error(errno, std::system_category());
+					close(speaker_pipe.get_fd());
+					speaker_pipe = -1;
+					while(not speaker_pipe)
+					{
+						sleep(1);
+						speaker_pipe = open("/run/user/1000/wivrn-sink", O_RDONLY, O_NONBLOCK);
+					}
+					
+				}
+				//	throw std::runtime_error("Error on speaker pipe");
+				//if (pfd.revents & POLLIN)
+				{
+					int size = 0;
+					while(size < 2048 - remainder)
+					{
+					int s = read(pfd.fd, buffer.data() + size + remainder, buffer_size - remainder);
+					if (s < 0)
+					{
+						if(errno != EWOULDBLOCK)
+							throw std::system_error(errno, std::system_category());
+						else
+							continue;
+					}
+					size += s;
+					}
 					size += remainder;              // full size of available data
 					remainder = size % sample_size; // data to keep for next iteration
 					size -= remainder;              // size of data to send
 					packet.payload = std::span<uint8_t>(buffer.begin(), size);
+					//printf("bs %d\n", size);
+					//packet.timestamp = session.get_offset().to_headset(os_monotonic_get_ns()).count();
 					packet.timestamp = session.get_offset().to_headset(os_monotonic_get_ns());
-
-					try
-					{
-						session.send_control(packet);
-					}
-					catch (std::exception & e)
-					{
-						U_LOG_D("Failed to send audio data: %s", e.what());
-					}
-
+					//session.send_stream(packet);
+					//session.send_control(packet);
+                                  try
+                                                                         {
+                                                                                 session.send_control(packet);
+                                                                                 usleep(2000);
+                                                                         }
+                                                                         catch (std::exception & e)
+                                                                         {
+                                                                                 U_LOG_D("Failed to send audio data: %s", e.what());
+                                                                         }
+                                  
+                              					U_LOG_I("sendo audio: %zu bytes", packet.payload.size_bytes());
 					// put the remaining data at the beginning of the buffer
 					memmove(buffer.data(), buffer.data() + size, remainder);
 				}
 			}
-		}
 		catch (const std::exception & e)
 		{
-			U_LOG_D("Error in audio thread: %s", e.what());
+			U_LOG_E("Error in audio thread: %s", e.what());
+			sleep(3);
+		}
 		}
 	}
 
@@ -362,12 +208,21 @@ struct pulse_device : public audio_device
 	{
 		assert(desc.microphone);
 		pthread_setname_np(pthread_self(), "mic_thread");
+//		printf("mic %p\n", desc.microphone);
 
 		const size_t sample_size = desc.microphone->num_channels * sizeof(int16_t);
+		printf("pop0 begin\n");
+						for(int i = 0; i < 1000; i++)
+						{
+							auto packet = mic_buffer.pop();
+						}
+		printf("pop0 end\n");
+		while (1)//not quit)
+		{
 		try
 		{
-			while (not quit)
-			{
+//				printf("micr %d\n", sample_size);
+#if 1
 				pollfd pfd{};
 				pfd.fd = mic_pipe.get_fd();
 				pfd.events = POLLOUT;
@@ -376,23 +231,45 @@ struct pulse_device : public audio_device
 				if (r < 0)
 					throw std::system_error(errno, std::system_category());
 				if (pfd.revents & (POLLHUP | POLLERR))
-					throw std::runtime_error("Error on mic pipe");
+				{
+					close(mic_pipe.get_fd());
+					mic_pipe = -1;
+					while(not mic_pipe)
+					{
+						usleep(100000);
+						mic_pipe = open("/run/user/1000/wivrn-source", O_WRONLY | O_NONBLOCK);
+						write(mic_pipe.get_fd(), "\0\0", 2);
+						printf("pop begin\n");
+						for(int i = 0; i < 1000; i++)
+						{
+							auto packet = mic_buffer.pop();
+//							write(mic_pipe.get_fd(), "\0\0", 2);
+						}
+						printf("pop end\n");
+					}
+				}
+					//throw std::runtime_error("Error on mic pipe");
+					
 				if (pfd.revents & POLLOUT)
 				{
+#endif
 					auto packet = mic_buffer.pop();
 					auto & buffer = packet.payload;
 
 					int written = write(mic_pipe.get_fd(), buffer.data(), buffer.size());
-					if (written < 0)
-						throw std::system_error(errno, std::system_category());
+					//printf("bs %d %d\n", buffer.size(), written);
+					//printf("mic %d\n", written);
+				//	if (written < 0)
+				//		throw std::system_error(errno, std::system_category());
 
 					// Discard anything that didn't fit the buffer
 				}
 			}
-		}
 		catch (const std::exception & e)
 		{
 			U_LOG_E("Error in audio thread: %s", e.what());
+			sleep(3);
+		}
 		}
 	}
 
@@ -410,11 +287,11 @@ struct pulse_device : public audio_device
 	        xrt::drivers::wivrn::wivrn_session & session) :
 	        session(session)
 	{
-		pa_connection cnx("WiVRn");
-
+		//pa_connection cnx("WiVRn");
+//		printf("mic %p\n", info.microphone);
 		if (info.microphone)
 		{
-			microphone = ensure_source(cnx, source_name.c_str(), source_description, info.microphone->num_channels, info.microphone->sample_rate);
+			microphone = ensure_source(source_name.c_str(), source_description, info.microphone->num_channels, info.microphone->sample_rate);
 			desc.microphone = {
 			        .num_channels = info.microphone->num_channels,
 			        .sample_rate = info.microphone->sample_rate};
@@ -427,7 +304,7 @@ struct pulse_device : public audio_device
 
 		if (info.speaker)
 		{
-			speaker = ensure_sink(cnx, sink_name.c_str(), sink_description, info.speaker->num_channels, info.speaker->sample_rate);
+			speaker = ensure_sink(sink_name.c_str(), sink_description, info.speaker->num_channels, info.speaker->sample_rate);
 			desc.speaker = {
 			        .num_channels = info.speaker->num_channels,
 			        .sample_rate = info.speaker->sample_rate};
@@ -449,20 +326,12 @@ std::shared_ptr<audio_device> create_pulse_handle(
         const xrt::drivers::wivrn::from_headset::headset_info_packet & info,
         wivrn_session & session)
 {
-	try
-	{
-		return std::make_shared<pulse_device>(
-		        source_name, source_description, sink_name, sink_description, info, session);
-	}
-	catch (std::exception & e)
-	{
-		U_LOG_I("Pulseaudio backend creation failed: %s", e.what());
-		return nullptr;
-	}
+	return std::make_shared<pulse_device>(
+	        source_name, source_description, sink_name, sink_description, info, session);
 }
 
 void unload_module(uintptr_t id)
 {
-	pa_connection cnx("WiVRn");
-	unload_module(cnx, id);
+	//pa_connection cnx("WiVRn");
+	//unload_module(cnx, id);
 }
