@@ -334,6 +334,17 @@ std::vector<std::shared_ptr<shard_accumulator::blit_handle>> scenes::stream::com
 		if((*it)->feedback.frame_index == last_frame_index + 1)
 		{
 			frame_index = ++last_frame_index;
+			static uint32_t delay_reductor;
+			if(delay_reductor++ > 50)
+			{
+				delay_reductor = 0;
+				for (auto it = common_frames.begin(); it != common_frames.end(); ++it)
+					if((*it)->feedback.frame_index == last_frame_index + 1)
+					{
+						frame_index = ++last_frame_index;
+						break;
+					}
+			}
 			break;
 		}
 
@@ -357,12 +368,12 @@ std::vector<std::shared_ptr<shard_accumulator::blit_handle>> scenes::stream::com
 			if((*it)->feedback.frame_index > last_frame_index)
 				last_frame_index = (*it)->feedback.frame_index, frame_index = last_frame_index;
 
-		for (auto it = common_frames.begin(); it != common_frames.end(); ++it)
-			if((*it)->feedback.frame_index == last_frame_index - 1)
-			{
-				frame_index = --last_frame_index;
-				break;
-			}
+	///	for (auto it = common_frames.begin(); it != common_frames.end(); ++it)
+///			if((*it)->feedback.frame_index == last_frame_index - 1)
+///			{
+///				frame_index = --last_frame_index;
+///				break;
+///			}
 
 //		for (auto it = common_frames.begin(); it != common_frames.end(); ++it)
 //			if((*it)->feedback.frame_index == last_frame_index - 1)
