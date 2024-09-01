@@ -88,7 +88,7 @@ public:
 		{
 			return {};
 		}
-		return {ex, data.back()};
+		//return {ex, data.back()};
 
 		if (at_timestamp_ns - data.back().at_timestamp_ns > 1'000'000'000)
 		{
@@ -104,6 +104,7 @@ public:
 
 		if (data.front().at_timestamp_ns > at_timestamp_ns)
 		{
+			return {ex, data.back()}; //
 			if constexpr (extrapolate)
 			{
 				auto second = data.begin();
@@ -121,11 +122,13 @@ public:
 				ex = std::chrono::nanoseconds(at_timestamp_ns - std::min(before->produced_timestamp, after->produced_timestamp));
 				float t = float(after->at_timestamp_ns - at_timestamp_ns) /
 				          (after->at_timestamp_ns - before->at_timestamp_ns);
+				return {ex, data.back()}; //
 				return {ex, Derived::interpolate(*before, *after, t)};
 			}
 		}
 
 		ex = std::chrono::nanoseconds(at_timestamp_ns - data.back().produced_timestamp);
+		return {ex, data.back()}; //
 		if constexpr (extrapolate)
 		{
 			auto prev = data.rbegin();
