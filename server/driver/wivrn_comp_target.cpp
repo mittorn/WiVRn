@@ -472,7 +472,7 @@ static VkResult comp_wivrn_present(struct comp_target * ct,
 	}
 
 	auto & view_info = cn->psc.view_info;
-	view_info.foveation = cn->cnx->get_foveation_parameters();
+//	view_info.foveation = cn->cnx->get_foveation_parameters();
 	auto info = cn->pacer.present_to_info(desired_present_time_ns);
 	view_info.display_time = cn->cnx->get_offset().to_headset(info.predicted_display_time);
 	for (int eye = 0; eye < 2; ++eye)
