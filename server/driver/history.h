@@ -88,7 +88,7 @@ public:
 		{
 			return {};
 		}
-		//return {ex, data.back()};
+		return {ex, data.back()};
 
 		if (at_timestamp_ns - data.back().at_timestamp_ns > 1'000'000'000)
 		{
