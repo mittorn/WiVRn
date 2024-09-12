@@ -334,7 +334,7 @@ std::vector<std::shared_ptr<shard_accumulator::blit_handle>> scenes::stream::com
 		{
 			frame_index = ++last_frame_index;
 			static uint32_t delay_reductor;
-			if(delay_reductor++ > 50)
+			if(delay_reductor++ > 100)
 			{
 				delay_reductor = 0;
 				for (auto it = common_frames.begin(); it != common_frames.end(); ++it)
@@ -367,13 +367,13 @@ std::vector<std::shared_ptr<shard_accumulator::blit_handle>> scenes::stream::com
 			if((*it)->feedback.frame_index > last_frame_index)
 				last_frame_index = (*it)->feedback.frame_index, frame_index = last_frame_index;
 
-	///	for (auto it = common_frames.begin(); it != common_frames.end(); ++it)
-///			if((*it)->feedback.frame_index == last_frame_index - 1)
-///			{
-///				frame_index = --last_frame_index;
-///				break;
-///			}
-
+/*		for (auto it = common_frames.begin(); it != common_frames.end(); ++it)
+			if((*it)->feedback.frame_index == last_frame_index - 1)
+			{
+				frame_index = --last_frame_index;
+				break;
+			}
+*/
 //		for (auto it = common_frames.begin(); it != common_frames.end(); ++it)
 //			if((*it)->feedback.frame_index == last_frame_index - 1)
 //				frame_index = --last_frame_index;
@@ -409,7 +409,9 @@ void scenes::stream::render(const XrFrameState & frame_state)
 
 	display_time_phase = frame_state.predictedDisplayTime % frame_state.predictedDisplayPeriod;
 	display_time_period = frame_state.predictedDisplayPeriod;
+	usleep(5000);
 
+	{
 	std::shared_lock lock(decoder_mutex);
 	if (decoders.empty() or not frame_state.shouldRender)
 	{
@@ -539,9 +541,10 @@ void scenes::stream::render(const XrFrameState & frame_state)
 			i.blit_pipeline = vk::raii::Pipeline(device, application::get_pipeline_cache(), pipeline_info);
 		}
 	}
+	}
 
-	if (device.waitForFences(*fence, VK_TRUE, UINT64_MAX) == vk::Result::eTimeout)
-		throw std::runtime_error("Vulkan fence timeout");
+//	if (device.waitForFences(*fence, VK_TRUE, UINT64_MAX) == vk::Result::eTimeout)
+//		throw std::runtime_error("Vulkan fence timeout");
 
 	device.resetFences(*fence);
 
