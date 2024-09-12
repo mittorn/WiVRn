@@ -193,16 +193,33 @@ video_encoder_va::video_encoder_va(wivrn_vk_bundle & vk, xrt::drivers::wivrn::en
 	switch (settings.codec)
 	{
 		case Codec::h264:
-			encoder_ctx->profile = FF_PROFILE_H264_CONSTRAINED_BASELINE;
-			av_dict_set(&opts, "coder", "cavlc", 0);
+			encoder_ctx->profile = FF_PROFILE_H264_MAIN;//CONSTRAINED_BASELINE;
+			av_dict_set(&opts, "coder", "cabac", 0);
+//			av_dict_set(&opts, "qmin", "20", 0);
+//			av_dict_set(&opts, "qmax", "60", 0);
+			av_dict_set(&opts, "max_frame_size_i", "270000", 0);
+			av_dict_set(&opts, "max_frame_size_p", "270000", 0);
+			av_dict_set(&opts, "max_frame_size", "270000", 0);
+			av_dict_set(&opts, "bitrate_limit", "195000000", 0);
 //			av_dict_set(&opts, "qp", "30", 0);
 			break;
 		case Codec::h265:
+//			av_dict_set(&opts, "min_qp_i", "50", 0);
+//			av_dict_set(&opts, "min_qp_p", "60", 0);
+//			av_dict_set(&opts, "min_qp", "60", 0);
+			av_dict_set(&opts, "max_frame_size_i", "263888", 0);
+			av_dict_set(&opts, "max_frame_size_p", "263888", 0);
+			av_dict_set(&opts, "max_frame_size", "263888", 0);
+			av_dict_set(&opts, "bitrate_limit", "190000000", 0);
+			av_dict_set(&opts, "blbrc", "1", 0);
+			av_dict_set(&opts, "qmin", "21", 0);
+			av_dict_set(&opts, "qmax", "40", 0);
+			
 			encoder_ctx->profile = FF_PROFILE_HEVC_MAIN;
-			encoder_ctx->compression_level = 1U | (2U << 1) | (1U << 4);
-			encoder_ctx->rc_buffer_size = encoder_ctx->bit_rate / 90.0 * 1.1;
-			encoder_ctx->rc_max_rate = encoder_ctx->bit_rate;
-			encoder_ctx->rc_initial_buffer_occupancy = encoder_ctx->rc_buffer_size / 4 * 3;
+//			encoder_ctx->compression_level = 1U | (2U << 1) | (1U << 4);
+//			encoder_ctx->rc_buffer_size = encoder_ctx->bit_rate * 1.1 / 90.0;//1.1;
+//			encoder_ctx->rc_max_rate = encoder_ctx->bit_rate;
+//			encoder_ctx->rc_initial_buffer_occupancy = encoder_ctx->rc_buffer_size / 4 * 3;
 			break;
 	}
 	for (auto option: settings.options)
@@ -462,12 +479,113 @@ void video_encoder_va::PresentImage(yuv_converter & src_yuv, vk::raii::CommandBu
 	        nullptr,
 	        im_barriers);
 }
+#if 0
+#define U_1_000_000_000 (1000 * 1000 * 1000)
+
+static inline uint64_t
+os_timespec_to_ns(const struct timespec *spec)
+{
+	uint64_t ns = 0;
+	ns += (uint64_t)spec->tv_sec * U_1_000_000_000;
+	ns += (uint64_t)spec->tv_nsec;
+	return ns;
+}
+
+static inline uint64_t
+os_monotonic_get_ns(void)
+{
+#if 1 //defined(XRT_OS_LINUX)
+	struct timespec ts;
+	int ret = clock_gettime(CLOCK_MONOTONIC, &ts);
+	if (ret != 0) {
+		return 0;
+	}
+
+	return os_timespec_to_ns(&ts);
+#elif defined(XRT_OS_WINDOWS)
+	LARGE_INTEGER qpc;
+	QueryPerformanceCounter(&qpc);
+	return qpc.QuadPart * os_ns_per_qpc_tick_get();
+#else
+#error "need port"
+#endif
+}
+#endif
+
+
+#include <signal.h>
+#include <ucontext.h>
+#include <time.h>
+#if defined( __GLIBC__ )
+#if ( __GLIBC__ <= 2 ) && ( __GLIBC_MINOR__ <= 30 )
+// Library support was added in glibc 2.30.
+// Earlier glibc versions did not provide a wrapper for this system call,
+// necessitating the use of syscall(2).
+#include <sys/syscall.h>
+
+static pid_t gettid( void )
+{
+	return syscall( SYS_gettid );
+}
+#endif // ( __GLIBC__ <= 2 ) && ( __GLIBC_MINOR__ <= 30 )
+
+// Glibc misses this macro in POSIX headers (bits/types/sigevent_t.h)
+// but it does present in Linux headers (asm-generic/siginfo.h) and musl
+#if !defined( sigev_notify_thread_id )
+#define sigev_notify_thread_id _sigev_un._tid
+#endif // !defined( sigev_notify_thread_id )
+#endif // defined(__GLIBC__)
+static void Linux_TimerHandler( int sig, siginfo_t *si, void *uc )
+{
+	timer_t  *tidp = (timer_t*)si->si_value.sival_ptr;
+	int overrun = timer_getoverrun( *tidp );
+	printf( "Frame too long (overrun %d)!\n", overrun );
+}
+
+#define DEBUG_TIMER_SIGNAL SIGRTMIN
+
+static void Linux_SetTimer( float tm )
+{
+	static timer_t timerid;
+
+	if( !timerid && tm )
+	{
+		struct sigevent    sev = { 0 };
+		struct sigaction   sa = { 0 };
+
+		sa.sa_flags = SA_SIGINFO;
+		sa.sa_sigaction = Linux_TimerHandler;
+		sigaction( DEBUG_TIMER_SIGNAL, &sa, NULL );
+		// this path availiable in POSIX, but may signal wrong thread...
+		// sev.sigev_notify = SIGEV_SIGNAL;
+		sev.sigev_notify = SIGEV_THREAD_ID;
+		sev.sigev_notify_thread_id = gettid();
+		sev.sigev_signo = DEBUG_TIMER_SIGNAL;
+		sev.sigev_value.sival_ptr = &timerid;
+		timer_create( CLOCK_REALTIME, &sev, &timerid );
+	}
+
+	if( timerid )
+	{
+		struct itimerspec  its = {0};
+		its.it_value.tv_sec = tm;
+		its.it_value.tv_nsec = 1000000000ULL * fmod( tm, 1.0f );
+		its.it_interval.tv_sec = 0;
+		its.it_interval.tv_nsec = 0;
+		timer_settime( timerid, 0, &its, NULL );
+	}
+}
 
 void video_encoder_va::PushFrame(bool idr, std::chrono::steady_clock::time_point pts)
 {
-	va_frame->pict_type = idr ? AV_PICTURE_TYPE_I : AV_PICTURE_TYPE_P;
-	va_frame->pts = pts.time_since_epoch().count();
+	va_frame->pict_type = idr ? AV_PICTURE_TYPE_I : AV_PICTURE_TYPE_NONE;
+	va_frame->pts = 0;//pts.time_since_epoch().count();
+//	uint64_t time_begin = os_monotonic_get_ns();
+//	Linux_SetTimer( 19.0 / 1000 );
 	int err = avcodec_send_frame(encoder_ctx.get(), va_frame.get());
+//	Linux_SetTimer( 0 );
+//	uint64_t time_end = os_monotonic_get_ns();
+//	printf("encode time %d\n", (int)(time_end - time_begin));
 	if (err)
 	{
 		throw std::system_error(err, av_error_category(), "avcodec_send_frame failed");
