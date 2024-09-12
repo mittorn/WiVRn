@@ -50,15 +50,19 @@ void wivrn_pacer::predict(
 	// snap to phase
 	predicted_client_render = (predicted_client_render / frame_duration_ns) * frame_duration_ns + client_render_phase_ns;
 
+
 	if (now + mean_wake_up_to_present_ns + safe_present_to_decoded_ns > predicted_client_render)
 		predicted_client_render += frame_duration_ns * ((now + mean_wake_up_to_present_ns + safe_present_to_decoded_ns - predicted_client_render) / frame_duration_ns);
 
-	out_predicted_display_time_ns = predicted_client_render + mean_render_to_display_ns;
-	out_desired_present_time_ns = predicted_client_render - safe_present_to_decoded_ns;
+//	if (predicted_client_render< now)
+//		predicted_client_render= now;
+
+	out_predicted_display_time_ns = predicted_client_render + mean_render_to_display_ns; //frame_duration_ns * 0.85;// mean_render_to_display_ns;
+	out_desired_present_time_ns = predicted_client_render - safe_present_to_decoded_ns;//+ frame_duration_ns * 0.3;// - safe_present_to_decoded_ns;
 	out_wake_up_time_ns = out_desired_present_time_ns - mean_wake_up_to_present_ns;
-
+	
 	last_ns = predicted_client_render;
-
+	
 	in_flight_frames[frame_id % in_flight_frames.size()] = {
 	        .frame_id = frame_id,
 	        .present_ns = out_desired_present_time_ns,
